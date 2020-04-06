@@ -1,0 +1,87 @@
+# UN*X File System - Relational Database
+
+# Objectives
+
+1.  Create an Entity-Relationship Model of the problem space
+2.  Translate the ER model to a relational model, writing the necessary SQL 
+    to create the tables, primarykeys, foreign keys, and any additional indexes 
+    and/or other constraints
+3.  Populate your database with real-world sample data, as appropriate to your 
+    problem space
+4.  Create the prototype client (in the programming language of your choice), 
+    as required by the specific problem space
+
+# Requirements
+
+- [ ] Create ER Model for the un*x file-system
+    - [ ] Follow the notation from the lectures
+    - [ ] Includes
+        - [ ] entities
+        - [ ] attributes
+        - [ ] relationships
+        - [ ] cardinality constraints
+        - [ ] participation constraints
+    - [ ] Indicate primary keys of entities by underlining them
+    - [ ] Files properties
+        - [ ] name
+        - [ ] permission bits
+        - [ ] size
+        - [ ] type
+    - [ ] File contents
+    - [ ] Directories maintained in the standard un*x manner
+        - [ ] with sub-directories as created
+        - [ ] and, types per the standard un*x permissions
+    - [ ] Hard Links
+    - [ ] Symbolic Links
+- [ ] Create Relational Database <- From ER Model
+    - [ ] Appropriately normalized
+    - [ ] Use BLOB or TEXT types for file contents
+    - [ ] SQL to create necessary
+        - [ ] Tables
+        - [ ] Keys
+- [ ] Populate database with sample data
+    - [ ] Starting Point? -> Write small utility to copy file system form un*x
+            box into your system
+- [ ] Create the following utilities
+    - [ ] rdbsh shell program
+        - [ ] Keeps track of current working directory
+        - [ ] (cd) Change the current working directory
+        - [ ] Maintain a PATH variable
+        - [ ] Execute any executable program that is in your PATH
+    - [ ] ls (May choose to implement as a shell command in your shell)
+        - [ ] Accept -l argument 
+            "-l      (The lowercase letter ``ell''.)  List in long format.  
+            (See below.)  
+            A total sum for all the file sizes is output on a line 
+            before the long listing."
+        - [ ] Accept plain usage
+            "For each operand that names a file of a type other than directory, 
+            ls displays its name as well as any requested,
+            associated information.  For each operand that names a file of 
+            type directory, ls displays the names of files contained within 
+            that directory, as well as any requested, associated information.
+            
+            If no operands are given, the contents of the current directory are
+            displayed.  If more than one operand is given, non-directory
+            operands are displayed first; directory and non-directory operands 
+            are sorted separately and in lexicographical order."
+    - [ ] find (May choose to implement as a shell command in your shell)
+        - [ ] Accept the directory and (partial) name of the file being found
+        - [ ] Output the "ls -l" results for all your matches
+    - [ ] grep
+        - [ ] Accept the (partial) name of the file
+        - [ ] Seek the relevant pattern in the matching file(s)
+        - [ ] Output the line number and line for the matching lines
+
+# Submission
+
+1. A PDF with the ER model diagram + description as necessary
+2. SQL code
+3. SQL code and Sample Data source
+4. Whatever code is necessary, together with a README so that the evaluator 
+    knows what is necessary for the purpose of executing your code
+5. ~5 Minute Video Demo
+    - Here's what it does
+    - Here's what's cool
+    - Here's what was hard
+    - Should already be populated with data

@@ -1,8 +1,17 @@
 # UN*X File System - Relational Database
 This is our ECE 356 Project Submission made by Eliseo Ruiz Nowell (20667926)
-and Gerald Aryeetey (206_____)
+and Gerald Aryeetey (20685073)
 
 # Project Description
 
+# System Requirements
+Python 3.X+
+  * PIP
+MySQL 8.0+
+
 # Steps to Run Our Project
-1. 
+1. Create a Database
+2. Run `fs_schema.sql`
+3. Copy .fs_db.rdbsh and fill in template with database information
+4. Run `rdbsh`
+

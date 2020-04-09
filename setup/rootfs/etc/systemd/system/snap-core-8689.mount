@@ -1,0 +1,12 @@
+[Unit]
+Description=Mount unit for core, revision 8689
+Before=snapd.service
+
+[Mount]
+What=/var/lib/snapd/snaps/core_8689.snap
+Where=/snap/core/8689
+Type=squashfs
+Options=nodev,ro,x-gdu.hide
+
+[Install]
+WantedBy=multi-user.target

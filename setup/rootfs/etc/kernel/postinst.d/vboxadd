@@ -1,0 +1,5 @@
+#!/bin/sh
+# This only works correctly on Debian derivatives - Red Hat calls it before
+# installing the right header files.
+/sbin/rcvboxadd quicksetup "${1}"
+exit 0

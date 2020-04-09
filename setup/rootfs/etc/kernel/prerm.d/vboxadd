@@ -1,0 +1,4 @@
+#!/bin/sh
+for i in vboxguest vboxadd vboxsf vboxvfs vboxvideo; do rm -f /lib/modules/"${1}"/misc/"${i}".ko; done
+rmdir -p /lib/modules/"$1"/misc 2>/dev/null || true
+exit 0

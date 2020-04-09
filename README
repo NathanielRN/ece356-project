@@ -10,8 +10,623 @@ Python 3.X+
 MySQL 8.0+
 
 # Steps to Run Our Project
-1. Create a Database
-2. Run `fs_schema.sql`
-3. Copy .fs_db.rdbsh and fill in template with database information
-4. Run `rdbsh`
+1. Create an empty MySQL Database and run `USE <database_name>`
+2. Run `SOURCE fs_schema.sql` within the mysql 
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
+
+hon 3.X+
+  * PIP
+MySQL 8.0+
+
+# Steps to Run Our Project
+1. Create an empty MySQL Database
+2. Run `SOURCE fs_schema.sql`
+3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
+4. Fill in ~/.fs_db.rdbsh with database information
+5. Run `rdbsh`
 

@@ -1,0 +1,39 @@
+mecab-ipadic and mecab-ipadic-utf8 for Debian
+---------------------------------------------
+
+mecab-ipadic and mecab-ipadic-utf8 are dictionaries for mecab which performs
+the morphological analysis of Japanese texts.  
+ * mecab-ipadic for the EUC-JP encoded text.
+ * mecab-ipadic-utf8 for the UTF-8 encoded text.
+
+These packages can coexist with other dictionaries.
+ * mecab-naist-jdic
+ * mecab-naist-jdic-eucjp
+ * mecab-jumandic
+ * mecab-jumandic-utf8
+
+Since naist-jdic is based on ipadic with some updated contents, naist-jdic has
+the precedence over ipadic for the update-alternatives system.  ipadic still
+has good reasons to exist since it has a better data consistency.
+
+You can find more information at http://code.google.com/p/mecab/
+
+You can switch default dictionary to mecab-ipadic in UTF-8 mode by:
+
+$ sudo update-alternatives --config mecab-dictionary
+
+You can also force resource file to use ipadic in UTF-8 mode by:
+
+$  mecab -r /var/lib/mecab/dic/ipadic-utf8 ...
+
+or edit /etc/mecabrc to select the resource file. See mecab(8).
+
+NOTE:
+This mecab-ipadic package was originally uploaded to the non-free area
+following the precedent of ipadic.  After careful review, the new ipadic
+maintainer posted the package should be treated as DFSG compliant to the
+debian-legal.  http://lists.debian.org/debian-legal/2011/09/msg00010.html and
+uploaded it to the main area.  It was accepted.  This mecab-ipadic package
+follows this new precedent.
+
+ -- Osamu Aoki <osamu@debian.org>  Mon, 28 May 2012 23:50:22 +0900

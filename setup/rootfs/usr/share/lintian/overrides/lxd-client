@@ -1,0 +1,5 @@
+# cobra's fault
+lxd-client: manpage-section-mismatch usr/share/man/man1/lxc.*
+
+# Coming from an external source
+lxd-client: spelling-error-in-binary usr/bin/lxc wiH with

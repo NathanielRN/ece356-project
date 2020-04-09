@@ -1,0 +1,21 @@
+libdumbnet for Debian
+---------------------
+
+This library was originally distributed as libdnet.  However, Debian
+already been distributing a libdnet since the 1980s --- the DECnet
+library.
+
+So, since this library describes itself as a "dumb networking library"
+the obvious thing to do is to rename it as such.  If you are using source
+code that #includes <dnet.h>, you will want to change this to <dumbnet.h>
+As well, you may need to make revisions to Makefiles or Autoconf scripts.
+
+ -- Simon Law <sfllaw@engmail.uwaterloo.ca>, Thu, 15 Aug 2002 03:14:03 -0400
+
+Please note that the library has changed its hosting location from Sourceforge
+to GoogleCode. The upstream README file does not reflect that yet. The website
+is
+
+http://code.google.com/p/libdnet/
+
+ -- Jan Christoph Nordholz <hesso@pool.math.tu-berlin.de>  Mon, 18 May 2009 05:54:22 +0200

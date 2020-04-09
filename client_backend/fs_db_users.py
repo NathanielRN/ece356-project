@@ -1,4 +1,3 @@
-
 class User:
     def __init__(self, fs_db, uid, create_if_missing=False, user_name=None):
         if create_if_missing and user_name is None:
@@ -10,6 +9,9 @@ class User:
 
     def exists(self):
         return self.uid is not None
+
+    def __bool__(self):
+        return self.exists()
 
     @property
     def name(self):
@@ -36,6 +38,9 @@ class Group:
     def exists(self):
         return self.gid is not None
 
+    def __bool__(self):
+        return self.exists()
+
     @property
     def name(self):
         self.fs_db.get_name(self)
@@ -44,5 +49,5 @@ class Group:
     def name(self):
         self.fs_db.set_name(self)
 
-    def remove_user(self, user)
+    def remove_user(self, user):
         self.fs_db.revoke_membership(self, user)

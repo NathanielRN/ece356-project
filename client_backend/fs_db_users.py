@@ -17,7 +17,7 @@ class User:
     def name(self):
         self.fs_db.get_name(self)
 
-    @property.setter
+    @name.setter
     def name(self):
         self.fs_db.set_name(self)
 
@@ -45,7 +45,7 @@ class Group:
     def name(self):
         self.fs_db.get_name(self)
 
-    @property.setter
+    @name.setter
     def name(self):
         self.fs_db.set_name(self)
 

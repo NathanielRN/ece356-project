@@ -10,7 +10,7 @@ from datetime import datetime
 class File:
     def __init__(self, fs_db, path_or_id, create_if_missing=False):
         self.fs_db = fs_db
-        if isinstance(path_or_id, str) or isinstance(path_or_id, PathLike):
+        if isinstance(path_or_id, (PathLike, str)):
             path = path_or_id
             self.fid = self.fs_db.find_file(path)
             if not self.exists() and create_if_missing:

@@ -396,7 +396,7 @@ class FSDatabase:
             self.connection.commit()
 
     def add_symbolic_link(self, entity, linked_path):
-        params = {"fid": entity.fid, "path": linked_path}
+        params = {"fid": entity.fid, "path": str(linked_path)}
         with self:
             # Add to group
             self._execute_queries(FSSymbolicLinkQuery.DB_QUERY_ADD_SYMBOLIC_LINK, params)
@@ -592,7 +592,7 @@ class FSDatabase:
                 "fid": link_entity.fid,
             }, format_params={"prop": "linkToFullPath"})
             link_path = self.cursor.fetchone()
-            return Directory(self, link_path[0]) if link_path else None
+            return self.get_type(link_path[0])(self, link_path[0]) if link_path else None
 
     def set_linked_path(self, link_entity, new_path):
         with self:

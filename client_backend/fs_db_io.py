@@ -85,8 +85,8 @@ class FSGenericFileQuery(Enum):
     DEFAULT_DIRECTORY_PERMISSIONS = 0b111_101_101
     DB_QUERY_ADD_FILE = (
         "INSERT INTO Files "
-        "(fileName, groupOwnerID, authorID, ownerID) "
-        "VALUES (%(name)s, %(group)s, %(author)s, %(author)s)"
+        "(fileID, fileName, groupOwnerID, authorID, ownerID) "
+        "VALUES ({use_fid}, %(name)s, %(group)s, %(author)s, %(author)s)"
     )
     DB_QUERY_DEL_FILE = "DELETE FROM Files WHERE fileID = %(fid)s"
 
@@ -122,7 +122,7 @@ class FSRegularFileQuery(Enum):
 
     DB_QUERY_ADD_FILE_CONTENT = (
         "REPLACE INTO FileContents "
-        "SELECT fileContentID, %(line_no)s AS lineNumber, %(lineContent)s AS lineContent "
+        "SELECT fileContentID, %(line_no)s AS lineNumber, %(line_content)s AS lineContent "
         "FROM HardLinks WHERE fileID=%(fid)s"
     )
     DB_QUERY_GET_FILE_LENGTH = (
@@ -155,24 +155,26 @@ class FSDirectoryQuery(Enum):
         "VALUES (%(fid)s, %(parent_fid)s)"
     )
     DB_QUERY_MOVE_CHILD_FILE = "UPDATE ParentDirectory SET parentDirectoryFileID = %(parent_fid)s WHERE fileID = %(fid)s"
-    DB_QUERY_GET_FILE_WITH_PARENT = (
+
+    DB_QUERY_GET_SUBDIRECTORIES = (
         "SELECT fileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
-        "WHERE parentDirectoryFileID = %(parent_fid)s AND fileName = %(name)s"
+        "INNER JOIN Directory USING (fileID) "
+        "WHERE parentDirectoryFileID = %(parent_fid)s"
     )
 
     DB_QUERY_GET_PROP = "SELECT {prop} FROM Directories WHERE fileID = %(fid)s"
     DB_QUERY_SET_PROP = "UPDATE Directories SET {prop}=%(value)s WHERE fileID = %(fid)s"
 
-    DB_QUERY_GET_ALL_FILES = (
+    DB_QUERY_GET_CHILDREN = (
         "SELECT fileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
-        "WHERE parentDirectoryFileID = %(parent_fid)s"
+        "WHERE parentDirectoryFileID = %(fid)s"
     )
-    DB_QUERY_GET_ALL_FILES_LIKE = (
+    DB_QUERY_GET_CHILDREN_LIKE = (
         "SELECT fileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
-        "WHERE parentDirectoryFileID = %(parent_fid)s AND fileName LIKE %(pattern)s"
+        "WHERE parentDirectoryFileID = %(fid)s AND fileName LIKE %(pattern)s"
     )
 
 class FSSymbolicLinkQuery(Enum):
@@ -214,10 +216,7 @@ class FSDatabase:
             try:
                 formatted_query = query.value.format(**format_params)
                 self.cursor.execute(formatted_query, params)
-            except ProgrammingError:
-                print(">>>", query.value, params, format_params)
-                raise
-            except KeyError:
+            except Exception:
                 print(">>>", query.value, params, format_params)
                 raise
     """
@@ -235,12 +234,14 @@ class FSDatabase:
             self._execute_queries(FSUserQuery.DB_QUERY_ADD_GROUP, group_params)
             self._execute_queries(FSUserQuery.DB_QUERY_ADD_GROUP_MEMBERSHIP, membership_params)
             self.connection.commit()
+        return uid
 
     def add_group(self, gid, group_name):
         group_params = {"gid": gid, "group_name": group_name}
         with self:
             self._execute_queries(FSUserQuery.DB_QUERY_ADD_GROUP, group_params)
             self.connection.commit()
+        return gid
 
     def add_membership(self, uid, gid):
         membership_params = {"uid": uid, "gid": gid}
@@ -254,18 +255,16 @@ class FSDatabase:
             self._execute_queries(FSUserQuery.DB_QUERY_GET_USER_PROP, {
                 "uid": uid,
             }, format_params={"prop": "userID"})
-            for (uid,) in self.cursor:
-                return uid
-            return None
+            uid = self.cursor.fetchone()
+            return uid[0] if uid else None
 
     def get_group(self, gid):
         with self:
             self._execute_queries(FSUserQuery.DB_QUERY_GET_GROUP_PROP, {
                 "gid": gid,
             }, format_params={"prop": "groupID"})
-            for (gid,) in self.cursor:
-                return gid
-            return None
+            gid = self.cursor.fetchone()
+            return gid[0] if gid else None
 
 
     """
@@ -276,27 +275,25 @@ class FSDatabase:
         format_params = {"prop": "fileID"}
         with self:
             self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_PROP, params, format_params)
-            for _ in self.cursor:
+            if self.cursor.fetchone():
                 return Directory
-            print("=======")
             self._execute_queries(FSRegularFileQuery.DB_QUERY_GET_PROP, params, format_params)
-            for _ in self.cursor:
+            if self.cursor.fetchone():
                 return RegularFile
             self._execute_queries(FSSymbolicLinkQuery.DB_QUERY_GET_PROP, params, format_params)
-            for _ in self.cursor:
+            if self.cursor.fetchone():
                 return SymbolicLink
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, params, format_params)
-            for _ in self.cursor:
+            if self.cursor.fetchone():
                 return File
         return None
 
     def find_file_in_dir(self, parent_dir, filename):
-        params = {"parent_fid": parent_dir, "name": filename}
+        params = {"fid": parent_dir, "pattern": filename}
         with self:
-            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_FILE_WITH_PARENT, params)
-            for file_info in self.cursor:
-                return file_info.fileID
-        return None
+            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN_LIKE, params)
+            file_info = self.cursor.fetchone()
+            return file_info.fileID if file_info else None
 
     def _resolve_relative_path(self, path):
         ctx_path = PurePosixPath("/")
@@ -313,7 +310,6 @@ class FSDatabase:
         if PurePosixPath(path) == PurePosixPath("/"):
             self._verify_root()
             return FSDatabase.ROOTDIR_ID
-        print("FINDING", path)
         path = self._resolve_relative_path(path)
         parent = self.find_file(path.parent, resolve_link=True)
         if parent is None:
@@ -354,24 +350,31 @@ class FSDatabase:
         group = Group(self, shell_context.USER) or Group(self, FSDatabase.ROOTUSER_ID)
         path = self._resolve_relative_path(path)
         params = {"name": path.name, "author": author.uid, "group": group.gid}
+        format_params = {}
         if path != PurePosixPath("/"):
             parent_id = self.find_file(path.parent, resolve_link=True)
             if parent_id is None or self.get_type(parent_id) is not Directory:
                 raise ValueError("Invalid path for file")
             params["parent_fid"] = parent_id
-        #TODO: enforce that root dir is at ID=1
+            format_params["use_fid"] = "DEFAULT"
+        else:
+            format_params["use_fid"] = "%(fid)s"
+            params["fid"] = FSDatabase.ROOTDIR_ID
+
         with self:
             # Create file
-            self._execute_queries(FSGenericFileQuery.DB_QUERY_ADD_FILE, params)
-            params["fid"] = self.cursor.lastrowid
+            self._execute_queries(FSGenericFileQuery.DB_QUERY_ADD_FILE, params, format_params)
+            if "fid" not in params:
+                params["fid"] = self.cursor.lastrowid
             # Add to folder
             if "parent_fid" in params:
                 self._execute_queries(FSDirectoryQuery.DB_QUERY_ADD_CHILD_FILE, params)
             self.connection.commit()
+        return params["fid"]
 
     def add_directory(self, entity):
         params = {"fid": entity.fid}
-        entity.permissions = FSGenericFileQuery.DEFAULT_DIRECTORY_PERMISSIONS
+        entity.permissions = FSGenericFileQuery.DEFAULT_DIRECTORY_PERMISSIONS.value
         with self:
             # Add to group
             self._execute_queries(FSDirectoryQuery.DB_QUERY_ADD_DIRECTORY, params)
@@ -420,9 +423,8 @@ class FSDatabase:
                 self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, {
                     "fid": entity.fid,
                 }, format_params={"prop": "fileName",})
-            for name in self.cursor:
-                return name
-            return None
+            name = self.cursor.fetchone()
+            return name[0] if name else None
 
     def set_name(self, entity, new_name):
         with self:
@@ -448,9 +450,8 @@ class FSDatabase:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "ownerID"})
-            for (owner_id,) in self.cursor:
-                return User(self, owner_id)
-            return None
+            owner_id = self.cursor.fetchone()
+            return User(self, owner_id[0]) if owner_id else None
 
     def set_owner(self, file_entity, new_owner):
         with self:
@@ -465,9 +466,8 @@ class FSDatabase:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "groupOwnerID"})
-            for (owner_id,) in self.cursor:
-                return Group(self, owner_id)
-            return None
+            owner_id = self.cursor.fetchone()
+            return Group(self, owner_id[0]) if owner_id else None
 
     def set_group_owner(self, file_entity, new_owner):
         with self:
@@ -482,9 +482,8 @@ class FSDatabase:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "permissionBits"})
-            for (perms,) in self.cursor:
-                return perms
-            return None
+            perms = self.cursor.fetchone()
+            return perms[0] if perms else None
 
     def set_permissions(self, file_entity, permission_bits):
         with self:
@@ -499,18 +498,16 @@ class FSDatabase:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "dateCreated"})
-            for (perms,) in self.cursor:
-                return perms
-            return None
+            date_created = self.cursor.fetchone()
+            return date_created[0] if date_created else None
 
     def get_author(self, file_entity):
         with self:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "authorID"})
-            for (author,) in self.cursor:
-                return User(self, author)
-            return None
+            author = self.cursor.fetchone()
+            return User(self, author[0]) if author else None
 
     def get_modified_date(self, file_entity):
         query_map = {
@@ -519,27 +516,26 @@ class FSDatabase:
             RegularFile: FSRegularFileQuery,
             SymbolicLink: FSSymbolicLinkQuery,
         }
-        query_type = query_map[file_entity.type()]
+        query_type = query_map[file_entity.type]
         with self:
             self._execute_queries(query_type.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "dateModified"})
-            for (date,) in self.cursor:
-                return date
-            return None
+            date_modified = self.cursor.fetchone()
+            return date_modified[0] if date_modified else None
 
-    def set_modified_date(self, file_entity, date_modified):
+    def update_modified_date(self, file_entity):
         query_map = {
             File: FSGenericFileQuery,
             Directory: FSDirectoryQuery,
             RegularFile: FSRegularFileQuery,
             SymbolicLink: FSSymbolicLinkQuery,
         }
-        query_type = query_map[file_entity.type()]
+        query_type = query_map[file_entity.type]
         with self:
             self._execute_queries(query_type.DB_QUERY_SET_PROP, {
                 "fid": file_entity.fid,
-                "value": date_modified
+                "value": datetime.now()
             }, format_params={"prop": "dateModified",})
             self.connection.commit()
 
@@ -550,27 +546,27 @@ class FSDatabase:
             RegularFile: FSRegularFileQuery,
             SymbolicLink: FSSymbolicLinkQuery,
         }
-        query_type = query_map[file_entity.type()]
+        query_type = query_map[file_entity.type]
         with self:
             self._execute_queries(query_type.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "dateLastOpened"})
-            for (date,) in self.cursor:
-                return date
-            return None
+            date_accessed = self.cursor.fetchone()
+            return date_accessed[0] if date_accessed else None
 
-    def set_accessed_date(self, file_entity, accessed_date):
+    def update_accessed_date(self, file_entity):
+
         query_map = {
             File: FSGenericFileQuery,
             Directory: FSDirectoryQuery,
             RegularFile: FSRegularFileQuery,
             SymbolicLink: FSSymbolicLinkQuery,
         }
-        query_type = query_map[file_entity.type()]
+        query_type = query_map[file_entity.type]
         with self:
             self._execute_queries(query_type.DB_QUERY_SET_PROP, {
                 "fid": file_entity.fid,
-                "value": accessed_date
+                "value": datetime.now()
             }, format_params={"prop": "dateLastOpened"})
             self.connection.commit()
 
@@ -579,9 +575,8 @@ class FSDatabase:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PARENT_DIR, {
                 "fid": file_entity.fid
             })
-            for (parent_fid,) in self.cursor:
-                return Directory(self, parent_fid)
-            return None
+            parent_fid = self.cursor.fetchone()
+            return Directory(self, parent_fid[0]) if parent_fid else None
 
     def set_parent_dir(self, file_entity, parent_dir):
         with self:
@@ -596,9 +591,8 @@ class FSDatabase:
             self._execute_queries(FSSymbolicLinkQuery.DB_QUERY_GET_PROP, {
                 "fid": link_entity.fid,
             }, format_params={"prop": "linkToFullPath"})
-            for (link_path,) in self.cursor:
-                return link_path
-            return None
+            link_path = self.cursor.fetchone()
+            return Directory(self, link_path[0]) if link_path else None
 
     def set_linked_path(self, link_entity, new_path):
         with self:
@@ -611,20 +605,20 @@ class FSDatabase:
     """
     Operations on file
     """
-    def get_all_files(self, directory_entity):
-        params = {"parent_fid": directory_entity.fid}
+    def get_children(self, directory_entity):
+        params = {"fid": directory_entity.fid}
         files = []
         with self:
-            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_ALL_FILES, params)
+            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN, params)
             files = [fid for (fid,) in self.cursor]
         for fid in files:
             yield self.get_type(fid)(self, fid)
 
-    def get_all_files_like(self, directory_entity, pattern):
-        params = {"parent_fid": directory_entity.fid, "pattern": pattern}
+    def get_children_like(self, directory_entity, pattern):
+        params = {"fid": directory_entity.fid, "pattern": pattern}
         files = []
         with self:
-            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_ALL_FILES_LIKE, params)
+            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN_LIKE, params)
             files = [fid for (fid,) in self.cursor]
         for fid in files:
             yield self.get_type(fid)(self, fid)

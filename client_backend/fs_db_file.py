@@ -5,6 +5,8 @@ on the various file types in the file system
 """
 from os import PathLike
 
+from datetime import datetime
+
 class File:
     def __init__(self, fs_db, path_or_id, create_if_missing=False):
         self.fs_db = fs_db
@@ -15,7 +17,6 @@ class File:
                 self.fid = self.fs_db.add_file(path)
         else:
             self.fid = path_or_id
-        print(f"Instance of {path_or_id} with fid=")
 
     def exists(self):
         return self.fid is not None
@@ -90,11 +91,11 @@ class File:
         return self.fs_db.get_parent_dir(self)
 
     def open(self):
-        self.fs_db.set_accessed_date(self)
+        self.fs_db.update_accessed_date(self)
 
     def modify(self):
         self.open()
-        self.fs_db.set_last_modified_date(self)
+        self.fs_db.update_modified_date(self)
 
     def move(self, new_directory):
         self.fs_db.set_parent_dir(self, new_directory)
@@ -136,11 +137,16 @@ class Directory(File):
             self.fs_db.add_directory(self)
 
     def walk(self):
-        yield from self.fs_db.get_all_files(self)
+        yield from self.fs_db.get_children(self)
         self.open()
 
-    def get_all_files_like(self, fileMatch):
-        yield from self.fs_db.get_all_files_like(self, fileMatch)
+    def get_file(self, filename):
+        child_file = self.fs_db.find_file_in_dir(self, filename)
+        self.open()
+        return child_file
+
+    def get_children_like(self, pattern):
+        yield from self.fs_db.get_children_like(self, pattern)
 
     def empty(self):
         for _ in self.walk():

@@ -22,6 +22,7 @@ def _to_db_path(path):
         return None
 
 def insertDataIntoDB(x, fs_db):
+    print(f'Copying: {x.as_posix()}')
     if x.is_dir():
         Directory(fs_db, _to_db_path(x), create_if_missing=True)
         for x_child in x.iterdir():
@@ -30,16 +31,16 @@ def insertDataIntoDB(x, fs_db):
         SymbolicLink(fs_db, _to_db_path(x), create_if_missing=True, linked_path=_to_db_path(x.resolve(strict=False)))
     elif x.is_file():
         db_file = RegularFile(fs_db, _to_db_path(x), create_if_missing=True, contents="")
-        user = User(fs_db, x.stat().st_uid, create_if_missing=True, name=x.owner())
-        author = User(fs_db, x.stat().st_creator, create_if_missing=True, name=pwd.getpwuid(x.stat().st_creator)[0])
-        group = Group(fs_db, x.stat().st_gid, create_if_missing=True, name=x.group())
-        db_file.author = author
+        user = User(fs_db, x.stat().st_uid, create_if_missing=True, user_name=x.owner())
+        author = user
+        group = Group(fs_db, x.stat().st_gid, create_if_missing=True, group_name=x.group())
+        # db_file.author = author
         db_file.owner = user
         db_file.group_owner = group
-        with x.open() as f:
+        with x.open('rb') as f:
             db_file.write(f.readlines())
     else:
-        print('Warning: Encountered unsupported file type', x.resolve())
+        print('Warning: Encountered unsupported file type', x.as_posix())
 
 if __name__ == "__main__":
     chdir(ROOTFS_PATH)

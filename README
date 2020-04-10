@@ -12,7 +12,8 @@ MySQL 8.0+
 
 # Steps to Run Our Project
 1. Create an empty MySQL Database `CREATE <database_name>` and run `USE <database_name>`
-2. Run `SOURCE fs_schema.sql` within the mysql 
-3. Copy .fs_db_rdbsh template and store it in ~/.fs_db_rdbsh
-4. Fill in ~/.fs_db.rdbsh with database information
-5. Run `rdbsh`
+2. Run `SOURCE fs_schema.sql` within the mysql database 
+3. Copy .fs_db_rdbsh template and store it in ./.fs_db_rdbsh
+4. Fill in ./.fs_db.rdbsh with database information
+5. (Optional) Fill the database with data by running `./fill_fs_rd.py`
+6. Run `rdbsh` to enter the fill system

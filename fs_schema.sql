@@ -55,7 +55,7 @@ CREATE TABLE RegularFileMetadata (
 CREATE TABLE FileContents(
     fileContentID INT NOT NULL,
     lineNumber INT NOT NULL,
-    lineContent BLOB NOT NULL,
+    lineContent LONGBLOB NOT NULL,
     PRIMARY KEY (fileContentID, lineNumber)
 );
 

@@ -21,8 +21,14 @@ if __name__ == "__main__":
         findDirectory = Directory(fs_db, shell_context.PWD)
     else:
         findDirectory = Directory(fs_db, findPathComponents[:-1].join('/'))
-    
-    for fileObject in findDirectory.get_all_files_like(findPathComponents[-1]):
+
+    matchedFiles = None
+    if '*' in filePatternComponents[-1]:
+        matchedFiles = findDirectory.get_all_files_like(filePatternComponents[-1].replace('*', '%'))
+    else:
+        matchedFiles = [findDirectory.get_file(filePatternComponents[-1])]
+
+    for fileObject in matchedFiles:
         fileDescriptionString = ''
 
         fileObjectType = fileObject.type

@@ -1,10 +1,11 @@
-#!/usr/bin/env python3
+#!rdbsh
 """Search for pattern matches within files
 
 Note: Change shebang to `rdbsh` to use has system utility with shell
 """
 from argparse import ArgumentParser
 
+from client_backend import shell_context
 from client_backend.fs_db_file import Directory
 from client_backend.fs_db_io import FSDatabase
 

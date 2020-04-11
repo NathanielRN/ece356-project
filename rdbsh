@@ -1,2 +1,152 @@
+#!/usr/bin/env python3
+"""Relational Database Shell
+
+Interface for interacting with MySQL Filesystem environment
+"""
+from client_backend import shell_context
+from client_backend.fs_db_users import User
+from client_backend.fs_db_file import Directory
+from client_backend.fs_db_io import FSDatabase, PermissionBits
+
+from stat import S_IRWXU, S_IRWXG, S_IRWXO
+from stat import S_IXUSR, S_IXGRP, S_IXOTH
+from os import chmod
+from pathlib import Path
+from argparse import ArgumentParser
+from runpy import run_path
+from subprocess import call
+from tempfile import TemporaryDirectory, NamedTemporaryFile
+
+DEFAULT_FS_DB_CONFIG = (
+    Path(".fs_db_rdbsh"),
+    Path("~/.fs_db_rdbsh"),
+)
+
+class RdbShell:
+    RUN_WORKSPACE = ".rdbsh_wkspc"
+    RUN_COMMAND_FILENAME = "_to_run"
+
+    def __init__(self, params):
+        config_paths = DEFAULT_FS_DB_CONFIG
+        if params.config is not None:
+            config_paths = (params.config,) + config_paths
+        fs_config = None
+        for path in config_paths:
+            if Path(path).exists():
+                fs_config = path
+                break
+        else:
+            raise ValueError("No config file found. Please create ~/.fs_db_rdbsh")
+        self.fs = FSDatabase(fs_config)
+        shell_context.USER = params.user
+        self.argv = None
+        # self.cmd_path = Path(f"{self.workspace}").joinpath(RdbShell.RUN_COMMAND_FILENAME)
+        
+        self.context = shell_context
+        # ensure that command file is executable
+
+    @staticmethod
+    def parse_args():
+        parser = ArgumentParser(description=__doc__)
+        parser.add_argument("-u", "--user", type=int, help="User ID to login as. Will be created if doesn't exist", default=0)
+        parser.add_argument("--config", help="Path to config directory")
+
+        return parser.parse_args()
+
+    def __iter__(self):
+        try:
+            done = False
+            while not done:
+                yield self.ask()
+        except EOFError:
+            print()
+            pass
+
+    @staticmethod
+    def _glob_to_sql(glob):
+        # Will change any glob characters
+        return (glob.replace("\\", "\\\\")
+                .replace("%", "\%")
+                .replace("*", "%")
+                .replace("_", "\_")
+                .replace("?", "_"))
+
+    def parse_cmd(self, cmd):
+        yield from cmd.split(";")
+
+    def _load_file(self, runnable_file, dbfile):
+        cmd = Path(runnable_file.name)
+        user = User(self.fs, shell_context.USER)
+        if not dbfile.check_access(user, PermissionBits.EXECUTE_OPERATION | PermissionBits.READ_OPERATION):
+            self.warn("Insufficient Permissions to read/execute file")
+            return False
+        for line in dbfile.readlines():
+            runnable_file.write(line)
+        runnable_file.flush()
+        return True
+
+    def _run_file(self, runnable_file, dbfile):
+        cmd_path = Path(runnable_file.name)
+        if dbfile.is_system_utility():
+            try:
+                run_path(cmd_path, init_globals=dict(
+                    SHELL=self.context,
+                    FS=self.fs,
+                    ARGV=self.argv
+                ), run_name="__rdbsh__")
+            except SystemExit:
+                pass
+        else:
+            print("ran z")
+            call([str(cmd_path)] + self.argv, shell=True)
+
+    def _split_path(self, path):
+        for dir_path in path.split(":"):
+            directory = Directory(self.fs, dir_path)
+            if directory.exists():
+                yield directory
+
+    def execute(self, cmd):
+        # would be cool if globs were expanded by the shell instead of the scripts ...
+        argv = tuple(arg.strip() for arg in cmd.split(" "))
+        if argv == ("exit",):
+            self.exit()
+        command = argv[0]
+        command_file = None
+        for directory in self._split_path(shell_context.PATH):
+            command_file = directory.get_file(command)
+            if command_file is not None:
+                break
+        else:
+            self.warn(f"Command '{argv[0]}' not found")
+            return
+
+        with NamedTemporaryFile("w+", dir=".") as f:
+            cmd_path = Path(f.name)
+            chmod(cmd_path, cmd_path.stat().st_mode & (S_IRWXU | S_IRWXG | S_IRWXO) & (S_IXGRP | S_IXUSR | S_IXOTH))
+            if self._load_file(f, command_file):
+                self.argv = argv[1:]
+                self._run_file(f, command_file)
+
+
+    def ask(self):
+        shell_power = "$"
+        if shell_context.USER == FSDatabase.ROOTUSER_ID:
+            shell_power = "#"
+        inpt = input(f"{User(self.fs, shell_context.USER).name}@{shell_context.PWD}{shell_power} ")
+        for cmd in self.parse_cmd(inpt):
+            self.execute(cmd)
+
+    def warn(self, msg):
+        print(f"ERROR: {msg}")
+
+    def exit(self):
+        raise StopIteration
+
 # 1. Initialize PATH
 # 2. Navigate to HOME directory
+
+if __name__ == "__main__":
+    with TemporaryDirectory(prefix=RdbShell.RUN_WORKSPACE, dir=Path()) as wkspc:
+        for _ in RdbShell(RdbShell.parse_args()):
+            pass 

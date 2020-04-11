@@ -1,28 +1,34 @@
 #!/usr/bin/env python3
+import pwd
+
+from argparse import ArgumentParser
+
 from os import chdir
 from pathlib import PurePath, Path
-import pwd
 
 from client_backend.fs_db_io import FSDatabase 
 from client_backend.fs_db_file import *
 from client_backend.fs_db_users import *
 
+from stat import S_IRWXU, S_IRWXG, S_IRWXO
+
 FS_DB = FSDatabase('.fs_db_rdbsh')
-ROOTFS_PATH = Path('setup/rootfs')
+ROOTFS_PATH = Path('setup/rootfs/')
 
 # Should create root user (uid/gid = 0) & nobody user (uid/gid = 99)
 
 def _to_db_path(path):
     try:
         if path.anchor:
-            path.relative_to(ROOTFS_PATH.resolve())
+            currentPath = Path().resolve()
+            path = path.relative_to(currentPath)
         return PurePath("/").joinpath(path)
     except ValueError:
-        print(f"Warning: Couldn't convert path {path} to a DB Path")
+        print(f"Warning: Could not locate'{path}' in Relational Database File System Root ({ROOTFS_PATH} by default)")
         return None
 
 def insertDataIntoDB(x, fs_db):
-    print(f'Copying: {x.as_posix()}')
+    print(f'Copying & Uploading: {x.as_posix()}')
     if x.is_dir():
         Directory(fs_db, _to_db_path(x), create_if_missing=True)
         for x_child in x.iterdir():
@@ -32,17 +38,26 @@ def insertDataIntoDB(x, fs_db):
     elif x.is_file():
         db_file = RegularFile(fs_db, _to_db_path(x), create_if_missing=True, contents="")
         if not db_file.exists():
-            user = User(fs_db, x.stat().st_uid, create_if_missing=True, user_name=x.owner())
-            author = user
-            group = Group(fs_db, x.stat().st_gid, create_if_missing=True, group_name=x.group())
-            # db_file.author = author
-            db_file.owner = user
-            db_file.group_owner = group
-            with x.open('rb') as f:
-                db_file.write(f.readlines())
+            db_file.author = user
+        user = User(fs_db, x.stat().st_uid, create_if_missing=True, user_name=x.owner())
+        group = Group(fs_db, x.stat().st_gid, create_if_missing=True, group_name=x.group())
+        # NOTE: Unix doesn't return the original creator, so we just call the user the author
+        db_file.owner = user
+        db_file.group_owner = group
+        db_file.permissions = x.stat().st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)
+        with x.open('rb') as f:
+            db_file.write(f.readlines())
     else:
         print('Warning: Encountered unsupported file type', x.as_posix())
 
 if __name__ == "__main__":
-    chdir(ROOTFS_PATH)
+    parser = ArgumentParser(description="Upload files to your MySQL File System")
+    parser.add_argument("custom_rdb_fs_root",
+        help=f"The path realtive to {ROOTFS_PATH} to upload from, otherwise upload from {ROOTFS_PATH} by default",
+        nargs='?',
+        default='.')
+    
+    args = parser.parse_args()
+
+    chdir(Path(ROOTFS_PATH).joinpath(args.custom_rdb_fs_root))
     insertDataIntoDB(Path(), FS_DB)

@@ -7,7 +7,9 @@ from client_backend import shell_context
 from client_backend.fs_db_file import *
 from client_backend.fs_db_users import *
 
+import stat
 import yaml
+import struct
 from enum import Enum
 from collections.abc import Sequence
 from pathlib import PurePosixPath
@@ -54,35 +56,44 @@ class FSUserQuery(Enum):
     DB_QUERY_GET_GROUP_PROP = "SELECT {prop} FROM UserGroups WHERE groupID = %(gid)s"
     DB_QUERY_SET_GROUP_PROP = "UPDATE UserGroups SET {prop}=%(value)s WHERE groupID = %(gid)s"
 
-class Permissions(Enum):
-    READ = 0b001
-    WRITE = 0b010
-    EXECUTE = 0b100
-    ALL = 0b111
+class PermissionBits:
+    READ_OPERATION = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+    WRITE_OPERATION = stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+    EXECUTE_OPERATION = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+    def __init__(self, permission_bits_string):
+        self.value = struct.unpack(">H", permission_bits_string)[0]
 
-    def for_user(self):
-        return self.value << 6
+    @staticmethod
+    def as_bytes(value):
+        return struct.pack(">H", value)
 
-    @classmethod
-    def get_user(cls, perms):
-        return (perms >> 6) & cls.ALL.value
+    def __str__(self):
+        perm_string = ''
+        PERM_TYPES = {
+            2: PermissionBits.READ_OPERATION,
+            1: PermissionBits.WRITE_OPERATION,
+            0: PermissionBits.EXECUTE_OPERATION,
+        }
+        PERM_SCOPES = {
+            2: stat.S_IRWXU,
+            1: stat.S_IRWXG,
+            0: stat.S_IRWXO,
+        }
+        PERM_TYPE_TO_STR = {
+            PermissionBits.READ_OPERATION: "r",
+            PermissionBits.WRITE_OPERATION: "w",
+            PermissionBits.EXECUTE_OPERATION: "x",
+        }
 
-    def for_group(self):
-        return self.value << 3
-
-    @classmethod
-    def get_group(cls, perms):
-        return (perms >> 3) & cls.ALL.value
-
-    def for_anyone(self):
-        return self.value
-
-    @classmethod
-    def get_anyone(cls, perms):
-        return (perms) & cls.ALL.value
+        for _, scope in reversed(sorted(PERM_SCOPES.items())):
+            for _, perm_type in reversed(sorted(PERM_TYPES.items())):
+                if self.value & scope & perm_type:
+                    perm_string += PERM_TYPE_TO_STR[perm_type]
+                else:
+                    perm_string += "-"
 
 class FSGenericFileQuery(Enum):
-    DEFAULT_DIRECTORY_PERMISSIONS = 0b111_101_101
+    DEFAULT_DIRECTORY_PERMISSIONS = 0b001_101_101
     DB_QUERY_ADD_FILE = (
         "INSERT INTO Files "
         "(fileID, fileName, groupOwnerID, authorID, ownerID) "
@@ -90,7 +101,7 @@ class FSGenericFileQuery(Enum):
     )
     DB_QUERY_DEL_FILE = "DELETE FROM Files WHERE fileID = %(fid)s"
 
-    DB_QUERY_GET_PARENT_DIRECTORY = (
+    DB_QUERY_GET_PARENT_DIR = (
         "SELECT parentDirectoryFileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
         "WHERE fileID = %(fid)s"
@@ -116,6 +127,11 @@ class FSRegularFileQuery(Enum):
         "(SELECT fileContentID FROM fileID = %(orig_fid)s)"
     )
 
+    DB_QUERY_COUNT_HARDLINKS = (
+        "SELECT COUNT(fileID) AS hardLinkCount FROM HardLinks "
+        "WHERE fileContentID = (SELECT fileContentID FROM HardLinks WHERE fileID = %(fid)s)"
+    )
+
     DB_QUERY_DEL_HARDLINK = (
         "DELETE FROM HardLinks WHERE fileID = %(fid)s"
     )
@@ -131,11 +147,24 @@ class FSRegularFileQuery(Enum):
         "INNER JOIN HardLinks USING (fileContentID) "
         "WHERE fileID = %(fid)s"
     )
+    DB_QUERY_CHECK_FOR_BANG = (
+        "SELECT fileID "
+        "FROM FileContents INNER JOIN RegularFileMetadata USING (fileContentID) "
+        "INNER JOIN HardLinks USING (fileContentID) "
+        "WHERE lineNumber = 1 AND fileID = %(fid)s AND lineContent LIKE '#!rdbsh%\\n'"
+    )
     DB_QUERY_GET_FILE_CONTENT = (
         "SELECT lineNumber, lineContent "
         "FROM FileContents INNER JOIN RegularFileMetadata USING (fileContentID) "
         "INNER JOIN HardLinks USING (fileContentID) "
         "WHERE fileID = %(fid)s ORDER BY lineNumber"
+    )
+    DB_QUERY_FIND_IN_FILE_CONTENT = (
+        "SELECT lineNumber, lineContent "
+        "FROM FileContents INNER JOIN RegularFileMetadata USING (fileContentID) "
+        "INNER JOIN HardLinks USING (fileContentID) "
+        "WHERE fileID = %(fid)s AND REGEXP_LIKE(lineContent, %(pattern)s, 'c') "
+        "ORDER BY lineNumber"
     )
 
     DB_QUERY_GET_PROP = "SELECT {prop} FROM RegularFileMetadata INNER JOIN HardLinks USING (fileContentID) WHERE fileID = %(fid)s"
@@ -159,8 +188,8 @@ class FSDirectoryQuery(Enum):
     DB_QUERY_GET_SUBDIRECTORIES = (
         "SELECT fileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
-        "INNER JOIN Directory USING (fileID) "
-        "WHERE parentDirectoryFileID = %(parent_fid)s"
+        "INNER JOIN Directories USING (fileID) "
+        "WHERE parentDirectoryFileID = %(fid)s"
     )
 
     DB_QUERY_GET_PROP = "SELECT {prop} FROM Directories WHERE fileID = %(fid)s"
@@ -199,14 +228,18 @@ class FSDatabase:
             db_configs = yaml.load(db_config_file)
         self.connection = MySQLConnection.connect(**db_configs)
         self.cursor = None
+        self.use_raw = False
     
     def __enter__(self):
         # self.cursor = MySQLCursorNamedTuple(self.connection)
-        self.cursor = self.connection.cursor(named_tuple=True)
+        params = dict(named_tuple=True) if not self.use_raw else dict(raw=True)
+        self.cursor = self.connection.cursor(**params)
     
     def __exit__(self, type, value, traceback):
-        self.cursor.close()
+        if self.cursor:
+            self.cursor.close()
         self.cursor = None
+        self.use_raw = False
 
     def _execute_queries(self, queries, params, format_params=None):
         format_params = format_params or {}
@@ -289,7 +322,7 @@ class FSDatabase:
         return None
 
     def find_file_in_dir(self, parent_dir, filename):
-        params = {"fid": parent_dir, "pattern": filename}
+        params = {"fid": parent_dir.fid if isinstance(parent_dir, Directory) else parent_dir, "pattern": filename}
         with self:
             self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN_LIKE, params)
             file_info = self.cursor.fetchone()
@@ -298,24 +331,23 @@ class FSDatabase:
     def _resolve_relative_path(self, path):
         ctx_path = PurePosixPath("/")
         path = PurePosixPath(path)
-        if path.parts[0] == "~":
+        if path.parts and path.parts[0] == "~":
             ctx_path = PurePosixPath(shell_context.HOME)
         else:
             ctx_path = PurePosixPath(shell_context.PWD)
+
         assert ctx_path.anchor
         # if path starts with /, will ignore ctx_path automatically
         return ctx_path.joinpath(path)
         
     def find_file(self, path, resolve_link=False):
+        path = self._resolve_relative_path(path)
         if PurePosixPath(path) == PurePosixPath("/"):
             self._verify_root()
             return FSDatabase.ROOTDIR_ID
-        path = self._resolve_relative_path(path)
         parent = self.find_file(path.parent, resolve_link=True)
         if parent is None:
             return None
-        if path.name == "..":
-            return parent
 
         parent_type = self.get_type(parent)
         if parent_type is not Directory:
@@ -323,6 +355,10 @@ class FSDatabase:
                 raise ValueError(f"Malformed path. '{path.parent}' does not exist")
             raise ValueError(f"Malformed path. Path element '{path.parent}' resolved to type '{parent_type}'")
 
+        if path.name == "..":
+            if parent == FSDatabase.ROOTDIR_ID:
+                return FSDatabase.ROOTDIR_ID
+            return parent_type(self, parent).get_parent_directory().fid or FSDatabase.ROOTDIR_ID
         # TODO: Might wanna add this to API
         fid = self.find_file_in_dir(parent, path.name)
 
@@ -389,6 +425,8 @@ class FSDatabase:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_REG_FILE, params)
             if isinstance(contents, str):
                 contents = contents.splitlines()
+            if not contents:
+                contents.append("")
             for line_no, content in enumerate(contents, 1):
                 content_params = {"line_no": line_no, "line_content": content}
                 content_params.update(params)
@@ -409,6 +447,24 @@ class FSDatabase:
     """
     Getters and Setters
     """
+
+    def get_full_name(self, entity):
+        full_name = entity.name
+        parent = self.get_parent_dir(entity)
+
+        while parent and self.get_parent_dir(parent):
+            full_name = f"{parent.name}/{full_name}"
+            parent = self.get_parent_dir(parent)
+        
+        return f"/{full_name}"
+        # if entity is None:
+        #     return ""
+        # if not entity.exists():
+        #     raise ValueError("Attempting to get path for non-existent entity")
+
+        # parent = self.get_parent_dir(entity)
+        # return PurePosixPath("/").joinpath(self.get_full_name(parent)).joinpath(entity.name)
+
     def get_name(self, entity):
         with self:
             if isinstance(entity, User):
@@ -446,12 +502,14 @@ class FSDatabase:
             self.connection.commit()
 
     def get_owner(self, file_entity):
+        uid = None
         with self:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "ownerID"})
             owner_id = self.cursor.fetchone()
-            return User(self, owner_id[0]) if owner_id else None
+            uid = owner_id[0] if owner_id else None
+        return User(self, uid) if uid is not None else None
 
     def set_owner(self, file_entity, new_owner):
         with self:
@@ -462,12 +520,14 @@ class FSDatabase:
             self.connection.commit()
 
     def get_group_owner(self, file_entity):
+        gid = None
         with self:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "groupOwnerID"})
             owner_id = self.cursor.fetchone()
-            return Group(self, owner_id[0]) if owner_id else None
+            gid = owner_id[0] if owner_id else None
+        return Group(self, gid) if gid is not None else None
 
     def set_group_owner(self, file_entity, new_owner):
         with self:
@@ -478,18 +538,19 @@ class FSDatabase:
             self.connection.commit()
 
     def get_permissions(self, file_entity):
+        self.use_raw = True
         with self:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
             }, format_params={"prop": "permissionBits"})
             perms = self.cursor.fetchone()
-            return perms[0] if perms else None
+            return PermissionBits(perms[0]) if perms else None
 
     def set_permissions(self, file_entity, permission_bits):
         with self:
             self._execute_queries(FSGenericFileQuery.DB_QUERY_SET_PROP, {
                 "fid": file_entity.fid,
-                "value": permission_bits
+                "value": PermissionBits.as_bytes(permission_bits)
             }, format_params={"prop": "permissionBits"})
             self.connection.commit()
 
@@ -555,7 +616,6 @@ class FSDatabase:
             return date_accessed[0] if date_accessed else None
 
     def update_accessed_date(self, file_entity):
-
         query_map = {
             File: FSGenericFileQuery,
             Directory: FSDirectoryQuery,
@@ -602,6 +662,16 @@ class FSDatabase:
             }, format_params={"prop": "linkToFullPath"})
             self.connection.commit()
 
+    def get_size(self, file_entity):
+        if file_entity.type is not RegularFile:
+            return 0
+        with self:
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_GET_PROP, {
+                "fid": file_entity.fid,
+            }, format_params={"prop": "size"})
+            size = self.cursor.fetchone()
+            return size[0] if size else None
+
     """
     Operations on file
     """
@@ -614,7 +684,7 @@ class FSDatabase:
         for fid in files:
             yield self.get_type(fid)(self, fid)
 
-    def get_children_like(self, directory_entity, pattern):
+    def get_children_like(self, directory_entity, pattern, search_subdirs=False):
         params = {"fid": directory_entity.fid, "pattern": pattern}
         files = []
         with self:
@@ -622,18 +692,20 @@ class FSDatabase:
             files = [fid for (fid,) in self.cursor]
         for fid in files:
             yield self.get_type(fid)(self, fid)
-        subdirs = []
-        with self:
-            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_SUBDIRECTORIES, params)
-            subdirs = [fid for (fid,) in self.cursor]
-        for subdir in subdirs:
-            yield from self.get_all_files_like(directory_entity, pattern)
+        if search_subdirs:
+            subdirs = []
+            with self:
+                self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_SUBDIRECTORIES, params)
+                subdirs = [fid for (fid,) in self.cursor]
+            for subdir in subdirs:
+                yield from self.get_children_like(Directory(self, subdir), pattern)
 
     def write_content(self, file_entity, new_content):
+        # TODO: Should delete existing contents then add new contents
         params = {"fid": file_entity.fid}
         with self:
             if isinstance(new_content, str):
-                contents = new_content.splitlines()
+                new_content = new_content.splitlines()
             contents = new_content
             for line_no, content in enumerate(contents, 1):
                 content_params = {"line_no": line_no, "line_content": content}
@@ -665,6 +737,14 @@ class FSDatabase:
             for _, line_content in self.cursor:
                 yield line_content
 
+    def check_if_utility(self, file_entity):
+        with self:
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_CHECK_FOR_BANG, {
+                "fid": file_entity.fid
+            })
+            found = self.cursor.fetchone()
+            return bool(found)
+
     def find_in_file(self, file_entity, pattern):
         with self:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_FIND_IN_FILE_CONTENT, {
@@ -673,6 +753,14 @@ class FSDatabase:
             })
             for line_no, line_content in self.cursor:
                 yield line_no, line_content
+
+    def count_hardlinks(self, file_entity):
+        params = {"fid": file_entity.fid}
+        with self:
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_COUNT_HARDLINKS, params)
+            num_hardlinks = self.cursor.fetchone()
+            return num_hardlinks[0] if num_hardlinks else None
+
 
     def add_hardlink(self, file_entity, path):
         hardlink_file = File(self, path, create_if_missing=True)

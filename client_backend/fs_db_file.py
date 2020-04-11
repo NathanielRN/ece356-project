@@ -3,8 +3,10 @@
 Defines a set of entities and associated operations that can be performed
 on the various file types in the file system
 """
-from os import PathLike
 
+from stat import S_IRWXU, S_IRWXG, S_IRWXO
+
+from os import PathLike
 from datetime import datetime
 
 class File:
@@ -23,7 +25,7 @@ class File:
 
     @property
     def permissions(self):
-        self.fs_db.get_permissions(self)
+        return self.fs_db.get_permissions(self)
 
     @permissions.setter
     def permissions(self, permission_bits):
@@ -31,23 +33,27 @@ class File:
 
     def check_access(self, user, operation):
         perm_bits = self.permissions
-        if Permissions.get_anyone(perm_bits) & operation:
+        if perm_bits.value & S_IRWXO & operation:
             return True
-        if Permissions.get_group(perm_bits) & operation:
+        if perm_bits.value & S_IRWXG & operation:
             if user.has_group(self.group_owner):
                 return True
-        if Permissions.get_user(perm_bits) & operation:
+        if perm_bits.value & S_IRWXU & operation:
             if user == self.owner:
                 return True
         return False
 
     @property
     def size(self):
-        self.fs_db.get_size(self)
+        return self.fs_db.get_size(self)
+    
+    @property
+    def full_name(self):
+        return self.fs_db.get_full_name(self)
 
     @property
     def name(self):
-        self.fs_db.get_name(self)
+        return self.fs_db.get_name(self)
 
     @name.setter
     def name(self, new_name):
@@ -55,7 +61,7 @@ class File:
 
     @property
     def owner(self):
-        self.fs_db.get_owner(self)
+        return self.fs_db.get_owner(self)
 
     @owner.setter
     def owner(self, new_owner):
@@ -63,7 +69,7 @@ class File:
 
     @property
     def group_owner(self):
-        self.fs_db.get_group_owner(self)
+        return self.fs_db.get_group_owner(self)
 
     @group_owner.setter
     def group_owner(self, new_owner):
@@ -71,21 +77,26 @@ class File:
 
     @property
     def author(self):
-        self.fs_db.get_author(self)
+        return self.fs_db.get_author(self)
 
     @property
     def created_date(self):
-        self.fs_db.get_created_date(self)
+        return self.fs_db.get_created_date(self)
+
+
+    @property
+    def num_of_hard_links(self):
+        return 1
 
     # TODO: Should allow arbitrary date changes maybe
 
     @property
     def modified_date(self):
-        self.fs_db.get_modified_date(self)
+        return self.fs_db.get_modified_date(self)
 
     @property
     def last_opened_date(self):
-        self.fs_db.get_accessed_date(self)
+        return self.fs_db.get_accessed_date(self)
 
     def get_parent_directory(self):
         return self.fs_db.get_parent_dir(self)
@@ -117,8 +128,12 @@ class SymbolicLink(File):
             self.fs_db.add_symbolic_link(self, linked_path)
 
     @property
+    def size(self):
+        return len(self.linked_path)
+
+    @property
     def linked_path(self):
-        self.fs_db.get_linked_path(self)
+        return self.fs_db.get_linked_path(self)
 
     @linked_path.setter
     def linked_path(self, linked_path):
@@ -136,6 +151,10 @@ class Directory(File):
         if create_if_missing and self.fs_db.get_type(self) is File:
             self.fs_db.add_directory(self)
 
+    @property
+    def size(self):
+        return 0
+
     def walk(self):
         yield from self.fs_db.get_children(self)
         self.open()
@@ -143,10 +162,10 @@ class Directory(File):
     def get_file(self, filename):
         child_file = self.fs_db.find_file_in_dir(self, filename)
         self.open()
-        return child_file
+        return self.fs_db.get_type(child_file)(self.fs_db, child_file) if child_file else None
 
-    def get_children_like(self, pattern):
-        yield from self.fs_db.get_children_like(self, pattern)
+    def get_children_like(self, pattern, search_subdirs=False):
+        yield from self.fs_db.get_children_like(self, pattern, search_subdirs)
 
     def empty(self):
         for _ in self.walk():
@@ -167,15 +186,24 @@ class RegularFile(File):
         if create_if_missing and self.fs_db.get_type(self) is File:
             self.fs_db.add_regular_file(self, contents)
 
+    @property
+    def num_of_hard_links(self):
+        return self.fs_db.count_hardlinks(self)
+
     def hardlink(self, path):
         return self.fs_db.add_hardlink(self, path)
 
     def find_in_file(self, glob_pattern):
-        self.fs_db.search_file(self, glob_pattern)
+        yield from self.fs_db.find_in_file(self, glob_pattern)
         self.open()
 
+    def is_system_utility(self):
+        res = self.fs_db.check_if_utility(self)
+        self.open()
+        return res
+
     def readlines(self):
-        yield from self.fs_db.get_lines(self)
+        yield from self.fs_db.readlines(self)
         self.open()
 
     def append(self, new_content):

@@ -451,19 +451,14 @@ class FSDatabase:
     def get_full_name(self, entity):
         full_name = entity.name
         parent = self.get_parent_dir(entity)
+        grandparent = self.get_parent_dir(parent) if parent else None
 
-        while parent and self.get_parent_dir(parent):
+        while parent and grandparent:
             full_name = f"{parent.name}/{full_name}"
-            parent = self.get_parent_dir(parent)
+            parent = grandparent
+            grandparent = self.get_parent_dir(parent)
         
         return f"/{full_name}"
-        # if entity is None:
-        #     return ""
-        # if not entity.exists():
-        #     raise ValueError("Attempting to get path for non-existent entity")
-
-        # parent = self.get_parent_dir(entity)
-        # return PurePosixPath("/").joinpath(self.get_full_name(parent)).joinpath(entity.name)
 
     def get_name(self, entity):
         with self:
@@ -768,3 +763,4 @@ class FSDatabase:
         with self:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_HARDLINK, params)
             self.connection.commit()
+

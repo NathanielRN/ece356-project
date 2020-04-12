@@ -8,13 +8,13 @@ from client_backend.fs_db_file import Directory, SymbolicLink, MissingFileError
 from client_backend.fs_db_io import FSDatabase
 
 def parse_args():
-    global ARGV
+    global ARGV, SHELL
     parser = ArgumentParser(description='List files in a directory.')
     parser.add_argument('-l', '--long-format', action='store_true')
     parser.add_argument('directory_listing_path', 
     help='the path of the directory whose files should be listed',
     nargs='?',
-    default=shell_context.PWD)
+    default=SHELL.PWD)
 
     return parser.parse_args(ARGV)
 

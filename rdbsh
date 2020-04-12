@@ -98,6 +98,7 @@ class RdbShell:
             except SystemExit:
                 pass
         else:
+            self.warn("Running command in system shell")
             call((str(cmd_path),) + self.argv, shell=True)
 
     def _split_path(self, path):

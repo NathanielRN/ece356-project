@@ -178,8 +178,9 @@ class SymbolicLink(File):
         self.modify()
 
     def resolve(self):
-        return self.fs_db.resolve_link(self)
+        resolved =  self.fs_db.resolve_link(self)
         self.open()
+        return resolved
 
 class Directory(File):
     def __init__(self, fs_db, path_or_id, create_if_missing=False):

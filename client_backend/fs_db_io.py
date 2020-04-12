@@ -69,28 +69,30 @@ class PermissionBits:
 
     def __str__(self):
         perm_string = ''
-        PERM_TYPES = {
-            2: PermissionBits.READ_OPERATION,
-            1: PermissionBits.WRITE_OPERATION,
-            0: PermissionBits.EXECUTE_OPERATION,
-        }
-        PERM_SCOPES = {
-            2: stat.S_IRWXU,
-            1: stat.S_IRWXG,
-            0: stat.S_IRWXO,
-        }
+        PERM_TYPES = [
+            PermissionBits.READ_OPERATION,
+            PermissionBits.WRITE_OPERATION,
+            PermissionBits.EXECUTE_OPERATION,
+        ]
+        PERM_SCOPES = [
+            stat.S_IRWXU,
+            stat.S_IRWXG,
+            stat.S_IRWXO,
+        ]
+
         PERM_TYPE_TO_STR = {
             PermissionBits.READ_OPERATION: "r",
             PermissionBits.WRITE_OPERATION: "w",
             PermissionBits.EXECUTE_OPERATION: "x",
         }
 
-        for _, scope in reversed(sorted(PERM_SCOPES.items())):
-            for _, perm_type in reversed(sorted(PERM_TYPES.items())):
+        for scope in PERM_SCOPES:
+            for perm_type in PERM_TYPES:
                 if self.value & scope & perm_type:
                     perm_string += PERM_TYPE_TO_STR[perm_type]
                 else:
                     perm_string += "-"
+        return perm_string
 
 class FSGenericFileQuery(Enum):
     DEFAULT_DIRECTORY_PERMISSIONS = 0b001_101_101
@@ -111,7 +113,8 @@ class FSGenericFileQuery(Enum):
     DB_QUERY_SET_PROP = "UPDATE Files SET {prop}=%(value)s WHERE fileID = %(fid)s"
 
 class FSRegularFileQuery(Enum):
-    DB_QUERY_ADD_REG_FILE_METADATA = "INSERT INTO RegularFileMetadata (size) VALUES (0)"
+    # NOTE: size is calculate-able we may want to setup either a trigger/view for keeping this up to date
+    DB_QUERY_ADD_REG_FILE_METADATA = "INSERT INTO RegularFileMetadata (size) VALUES (%(size)s)"
     DB_QUERY_ADD_REG_FILE = (
         "INSERT INTO HardLinks "
         "(fileID, fileContentID) "
@@ -137,9 +140,13 @@ class FSRegularFileQuery(Enum):
     )
 
     DB_QUERY_ADD_FILE_CONTENT = (
-        "REPLACE INTO FileContents "
+        "INSERT INTO FileContents "
         "SELECT fileContentID, %(line_no)s AS lineNumber, %(line_content)s AS lineContent "
         "FROM HardLinks WHERE fileID=%(fid)s"
+    )
+    DB_QUERY_DELETE_ALL_FILE_CONTENT = (
+        "DELETE FROM FileContents "
+        "WHERE fileContentID = (SELECT fileContentID FROM HardLinks WHERE fileID = %(fid)s)"
     )
     DB_QUERY_GET_FILE_LENGTH = (
         "SELECT MAX(lineNumber) "
@@ -149,27 +156,24 @@ class FSRegularFileQuery(Enum):
     )
     DB_QUERY_CHECK_FOR_BANG = (
         "SELECT fileID "
-        "FROM FileContents INNER JOIN RegularFileMetadata USING (fileContentID) "
-        "INNER JOIN HardLinks USING (fileContentID) "
+        "FROM FileContents INNER JOIN HardLinks USING (fileContentID) "
         "WHERE lineNumber = 1 AND fileID = %(fid)s AND lineContent LIKE '#!rdbsh%\\n'"
     )
     DB_QUERY_GET_FILE_CONTENT = (
         "SELECT lineNumber, lineContent "
-        "FROM FileContents INNER JOIN RegularFileMetadata USING (fileContentID) "
-        "INNER JOIN HardLinks USING (fileContentID) "
+        "FROM FileContents INNER JOIN HardLinks USING (fileContentID) "
         "WHERE fileID = %(fid)s ORDER BY lineNumber"
     )
     DB_QUERY_FIND_IN_FILE_CONTENT = (
         "SELECT lineNumber, lineContent "
-        "FROM FileContents INNER JOIN RegularFileMetadata USING (fileContentID) "
-        "INNER JOIN HardLinks USING (fileContentID) "
+        "FROM FileContents INNER JOIN HardLinks USING (fileContentID) "
         "WHERE fileID = %(fid)s AND REGEXP_LIKE(lineContent, %(pattern)s, 'c') "
         "ORDER BY lineNumber"
     )
 
     DB_QUERY_GET_PROP = "SELECT {prop} FROM RegularFileMetadata INNER JOIN HardLinks USING (fileContentID) WHERE fileID = %(fid)s"
     DB_QUERY_SET_PROP = "UPDATE RegularFileMetadata SET {prop}=%(value)s WHERE fileContentID = (SELECT fileContentID FROM HardLinks WHERE fileID=%(fid)s)"
-
+    DB_QUERY_INCREMENT_PROP = "UPDATE RegularFileMetadata SET {prop} = {prop} + %(value)s WHERE fileContentID = (SELECT fileContentID FROM HardLinks WHERE fileID=%(fid)s)"
 
 class FSDirectoryQuery(Enum):
     DB_QUERY_ADD_DIRECTORY = (
@@ -382,8 +386,11 @@ class FSDatabase:
         User(self, FSDatabase.NOBODYUSER_ID, create_if_missing=True, user_name="nobody")
 
     def add_file(self, path):
-        author = User(self, shell_context.USER) or User(self, FSDatabase.ROOTUSER_ID) 
-        group = Group(self, shell_context.USER) or Group(self, FSDatabase.ROOTUSER_ID)
+        author, group = None, None
+        try:
+            author, group = User(self, shell_context.USER), Group(self, shell_context.USER)
+        except (MissingUserError, MissingGroupError): 
+            author, group = User(self, FSDatabase.ROOTUSER_ID), Group(self, FSDatabase.ROOTUSER_ID)
         path = self._resolve_relative_path(path)
         params = {"name": path.name, "author": author.uid, "group": group.gid}
         format_params = {}
@@ -419,14 +426,15 @@ class FSDatabase:
     def add_regular_file(self, entity, contents):
         params = {"fid": entity.fid}
         with self:
-            # Add to group
-            self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_REG_FILE_METADATA, {})
-            params["file_content_id"] = self.cursor.lastrowid
-            self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_REG_FILE, params)
             if isinstance(contents, str):
                 contents = contents.splitlines()
             if not contents:
                 contents.append("")
+            params["size"] = sum(map(len, contents))
+            # Add to group
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_REG_FILE_METADATA, params)
+            params["file_content_id"] = self.cursor.lastrowid
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_REG_FILE, params)
             for line_no, content in enumerate(contents, 1):
                 content_params = {"line_no": line_no, "line_content": content}
                 content_params.update(params)
@@ -647,7 +655,7 @@ class FSDatabase:
                 "fid": link_entity.fid,
             }, format_params={"prop": "linkToFullPath"})
             link_path = self.cursor.fetchone()
-            return File(self, link_path[0]) if link_path else None
+            return link_path[0] if link_path else None
 
     def set_linked_path(self, link_entity, new_path):
         with self:
@@ -696,12 +704,18 @@ class FSDatabase:
                 yield from self.get_children_like(Directory(self, subdir), pattern)
 
     def write_content(self, file_entity, new_content):
-        # TODO: Should delete existing contents then add new contents
         params = {"fid": file_entity.fid}
         with self:
-            if isinstance(new_content, str):
-                new_content = new_content.splitlines()
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_DELETE_ALL_FILE_CONTENT, params)
             contents = new_content
+            if isinstance(contents, str):
+                contents = contents.splitlines()
+            if not contents:
+                contents.append("")
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_SET_PROP, {
+                "fid": file_entity.fid,
+                "value": sum(map(len, contents)),
+            }, format_params={"prop": "size"})
             for line_no, content in enumerate(contents, 1):
                 content_params = {"line_no": line_no, "line_content": content}
                 content_params.update(params)
@@ -713,11 +727,17 @@ class FSDatabase:
         with self:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_GET_FILE_LENGTH, params)
             start_length = 1
-            for length in self.cursor:
-                start_length = length
-            if isinstance(new_content, str):
-                contents = new_content.splitlines()
+            length = self.cursor.fetchone()
+            start_length = length[0] if length else None
             contents = new_content
+            if isinstance(contents, str):
+                contents = contents.splitlines()
+            if not contents:
+                new_contents.append("")
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_INCREMENT_PROP, {
+                "fid": file_entity.fid,
+                "value": sum(map(len, contents)),
+            }, format_params={"prop": "size"})
             for line_no, content in enumerate(contents, line_no + 1):
                 content_params = {"line_no": line_no, "line_content": content}
                 content_params.update(params)

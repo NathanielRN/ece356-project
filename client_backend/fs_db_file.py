@@ -4,24 +4,59 @@ Defines a set of entities and associated operations that can be performed
 on the various file types in the file system
 """
 
+import errno
 from stat import S_IRWXU, S_IRWXG, S_IRWXO
 
-from os import PathLike
+
+from os import PathLike, strerror
 from datetime import datetime
 
+class MissingFileError(IOError):
+    def __init__(self, path):
+        super().__init__(errno.ENOENT, strerror(errno.ENOENT), path)
+
 class File:
-    def __init__(self, fs_db, path_or_id, create_if_missing=False):
-        self.fs_db = fs_db
+    def __new__(cls, *args, **kwargs):
+        """
+        Does error checking/reporting on instantiation of object
+
+        Ensures that Python type of object == actual type of file
+        """
+        fs_db, path_or_id = args
+        create_if_missing = kwargs.get("create_if_missing")
+        if not fs_db:
+            raise ValueError("Did not provide filesystem DB connection")
+        if create_if_missing and cls is File:
+            raise ValueError("Attempting an untyped file")
+
+
+        inst = super().__new__(cls)
+        inst.fs_db = fs_db
         if isinstance(path_or_id, (PathLike, str)):
             path = path_or_id
-            self.fid = self.fs_db.find_file(path)
-            if not self.exists() and create_if_missing:
-                self.fid = self.fs_db.add_file(path)
+            inst.fid = fs_db.find_file(path)
+            if inst.fid is None and not create_if_missing:
+                raise MissingFileError(path)
         else:
-            self.fid = path_or_id
+            inst.fid = path_or_id
 
-    def exists(self):
-        return self.fid is not None
+        if create_if_missing:
+            return inst
+
+        inst_type = fs_db.get_type(inst.fid)
+        if inst_type is None:
+            raise ValueError(f"Invalid File ID = '{path_or_id}'")
+        if not issubclass(inst_type, cls):
+            raise ValueError(f"Trying to create instance of type {cls.__name__} "
+                             f"when file is {inst_type.__name__}. "
+                             "Use generic types if type is unknown")
+        return inst if inst_type is cls else inst_type(fs_db, inst.fid)
+
+
+    def __init__(self, fs_db, path_or_id, create_if_missing=False):
+        if not self.fid and isinstance(path_or_id, (PathLike, str)) and create_if_missing:
+            path = path_or_id
+            self.fid = self.fs_db.add_file(path)
 
     @property
     def permissions(self):
@@ -116,7 +151,9 @@ class File:
 
     @property
     def type(self):
-        return self.fs_db.get_type(self)
+        own_type = self.fs_db.get_type(self)
+        assert own_type is type(self)
+        return own_type
 
 class SymbolicLink(File):
     def __init__(self, fs_db, path_or_id, create_if_missing=False, linked_path=None):
@@ -162,7 +199,7 @@ class Directory(File):
     def get_file(self, filename):
         child_file = self.fs_db.find_file_in_dir(self, filename)
         self.open()
-        return self.fs_db.get_type(child_file)(self.fs_db, child_file) if child_file else None
+        return File(self.fs_db, child_file) if child_file else None
 
     def get_children_like(self, pattern, search_subdirs=False):
         yield from self.fs_db.get_children_like(self, pattern, search_subdirs)

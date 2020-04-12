@@ -3,8 +3,8 @@
 from argparse import ArgumentParser
 from pathlib import PurePosixPath
 from pathlib import Path
-from client_backend import shell_context
-from client_backend.fs_db_file import Directory, SymbolicLink
+
+from client_backend.fs_db_file import Directory, SymbolicLink, MissingFileError
 from client_backend.fs_db_io import FSDatabase
 
 def parse_args():
@@ -22,10 +22,11 @@ def parse_args():
 def main(args):
     global FS, SHELL
 
-    parsedTargetFile = Directory(FS, args.directory_listing_path)
-    
-    if not parsedTargetFile.exists():
-        raise ValueError(f"Cannot access '{args.directory_listing_path}': No such file or directory.")
+    try:
+        parsedTargetFile = Directory(FS, args.directory_listing_path)
+    except MissingFileError:
+        print(f"Cannot access '{args.directory_listing_path}': No such file or directory.")
+        return 1
 
     files = list(parsedTargetFile.walk()) if parsedTargetFile.type is Directory else [parsedTargetFile]
 

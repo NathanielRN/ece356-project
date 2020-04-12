@@ -5,7 +5,7 @@ Note: Change shebang to `rdbsh` to use has system utility with shell
 """
 from argparse import ArgumentParser
 
-from client_backend.fs_db_file import Directory
+from client_backend.fs_db_file import Directory, MissingFileError
 
 def parse_args():
     global ARGV
@@ -16,8 +16,9 @@ def parse_args():
 
 def main(args):
     global FS, SHELL
-    new_dir = Directory(FS, args.path_to_change_to)
-    if not new_dir.exists() or new_dir is None:
+    try:
+        new_dir = Directory(FS, args.path_to_change_to)
+    except MissingFileError:
         print (f"cd: No such directory")
         return 1
     SHELL.PWD = new_dir.full_name

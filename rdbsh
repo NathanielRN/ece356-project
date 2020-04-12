@@ -5,7 +5,7 @@ Interface for interacting with MySQL Filesystem environment
 """
 from client_backend import shell_context
 from client_backend.fs_db_users import User
-from client_backend.fs_db_file import Directory
+from client_backend.fs_db_file import Directory, MissingFileError
 from client_backend.fs_db_io import FSDatabase, PermissionBits
 
 from stat import S_IRWXU, S_IRWXG, S_IRWXO
@@ -15,6 +15,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 from runpy import run_path
 from subprocess import call
+from contextlib import suppress
 from tempfile import TemporaryDirectory, NamedTemporaryFile
 
 DEFAULT_FS_DB_CONFIG = (
@@ -97,13 +98,12 @@ class RdbShell:
             except SystemExit:
                 pass
         else:
-            print("ran z")
-            call([str(cmd_path)] + self.argv, shell=True)
+            call((str(cmd_path),) + self.argv, shell=True)
 
     def _split_path(self, path):
         for dir_path in path.split(":"):
-            directory = Directory(self.fs, dir_path)
-            if directory.exists():
+            with suppress(MissingFileError):
+                directory = Directory(self.fs, dir_path)
                 yield directory
 
     def execute(self, cmd):

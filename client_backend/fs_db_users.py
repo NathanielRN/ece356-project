@@ -4,14 +4,13 @@ class User:
             raise ValueError("Cannot create user without name")
         self.fs_db = fs_db
         self.uid = self.fs_db.get_user(uid)
-        if not self.exists() and create_if_missing:
+        if not self._exists() and create_if_missing:
             self.uid = self.fs_db.add_user(uid, user_name)
+        if not self._exists():
+            raise ValueError(f"No user matching uid={uid}")
 
-    def exists(self):
+    def _exists(self):
         return self.uid is not None
-
-    def __bool__(self):
-        return self.exists()
 
     @property
     def name(self):
@@ -32,14 +31,13 @@ class Group:
             raise ValueError("Cannot create group without name")
         self.fs_db = fs_db
         self.gid = self.fs_db.get_group(gid)
-        if not self.exists() and create_if_missing:
+        if not self._exists() and create_if_missing:
             self.gid = self.fs_db.add_group(gid, group_name)
-    
-    def exists(self):
-        return self.gid is not None
+        if not self._exists():
+            raise ValueError(f"No group matching gid={gid}")
 
-    def __bool__(self):
-        return self.exists()
+    def _exists(self):
+        return self.gid is not None
 
     @property
     def name(self):

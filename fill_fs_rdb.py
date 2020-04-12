@@ -37,11 +37,11 @@ def insertDataIntoDB(x, fs_db):
         SymbolicLink(fs_db, _to_db_path(x), create_if_missing=True, linked_path=_to_db_path(x.resolve(strict=False)))
     elif x.is_file():
         db_file = RegularFile(fs_db, _to_db_path(x), create_if_missing=True, contents="")
-        if not db_file.exists():
-            db_file.author = user
+        # NOTE: Unix doesn't return the original creator, so we just call the user the author
+        # NOTE: Also API doesn't support changing the author
+        # db_file.author = user
         user = User(fs_db, x.stat().st_uid, create_if_missing=True, user_name=x.owner())
         group = Group(fs_db, x.stat().st_gid, create_if_missing=True, group_name=x.group())
-        # NOTE: Unix doesn't return the original creator, so we just call the user the author
         db_file.owner = user
         db_file.group_owner = group
         db_file.permissions = x.stat().st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)

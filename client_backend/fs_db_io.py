@@ -370,7 +370,7 @@ class FSDatabase:
         fid = self.find_file(link_entity.linked_path)
         if fid is None:
             return None
-        return self.get_type(fid)(self, fid)
+        return File(self, fid)
 
     """
     Creation/Deletion
@@ -647,7 +647,7 @@ class FSDatabase:
                 "fid": link_entity.fid,
             }, format_params={"prop": "linkToFullPath"})
             link_path = self.cursor.fetchone()
-            return self.get_type(link_path[0])(self, link_path[0]) if link_path else None
+            return File(self, link_path[0]) if link_path else None
 
     def set_linked_path(self, link_entity, new_path):
         with self:
@@ -677,7 +677,7 @@ class FSDatabase:
             self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN, params)
             files = [fid for (fid,) in self.cursor]
         for fid in files:
-            yield self.get_type(fid)(self, fid)
+            yield File(self, fid)
 
     def get_children_like(self, directory_entity, pattern, search_subdirs=False):
         params = {"fid": directory_entity.fid, "pattern": pattern}
@@ -686,7 +686,7 @@ class FSDatabase:
             self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN_LIKE, params)
             files = [fid for (fid,) in self.cursor]
         for fid in files:
-            yield self.get_type(fid)(self, fid)
+            yield File(self, fid)
         if search_subdirs:
             subdirs = []
             with self:

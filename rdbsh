@@ -5,13 +5,18 @@ Interface for interacting with MySQL Filesystem environment
 """
 from client_backend import shell_context
 from client_backend.fs_db_users import User
-from client_backend.fs_db_file import Directory, MissingFileError
+from client_backend.fs_db_file import Directory, SymbolicLink, RegularFile, File
+from client_backend.fs_db_file import MissingFileError, IncorrectFileTypeError
 from client_backend.fs_db_io import FSDatabase, PermissionBits
 
+# TODO: Could use last example in readline docs to keep up to date history file within DB
+import re
+import readline
 from stat import S_IRWXU, S_IRWXG, S_IRWXO
 from stat import S_IXUSR, S_IXGRP, S_IXOTH
-from os import chmod
-from pathlib import Path
+from enum import Enum, auto
+from os import chmod, remove
+from pathlib import PurePosixPath, Path
 from argparse import ArgumentParser
 from runpy import run_path
 from subprocess import call
@@ -23,28 +28,38 @@ DEFAULT_FS_DB_CONFIG = (
     Path("~/.fs_db_rdbsh"),
 )
 
-class RdbShell:
-    RUN_WORKSPACE = ".rdbsh_wkspc"
-    RUN_COMMAND_FILENAME = "_to_run"
+class RdbShellWriteMode(Enum):
+    WRITE = auto()
+    APPEND = auto()
 
-    def __init__(self, params):
+class RdbShell:
+    RUN_WORKSPACE = ".rdbsh_workspace_"
+    RUN_COMMAND_FILENAME = "_to_run"
+    VAR_SET_MATCHER = re.compile(r"^\s*(\w+)\s*=(.*)$")
+    SYS_VAR_MATCHER = re.compile(r"^__\w+__$")
+    VAR_ITERATOR = re.compile(r"\$(\w+|\?)")
+    GLOB_CHARACTERS = "*?"
+
+    def __init__(self, params, workspace):
         config_paths = DEFAULT_FS_DB_CONFIG
         if params.config is not None:
             config_paths = (params.config,) + config_paths
         fs_config = None
+
         for path in config_paths:
             if Path(path).exists():
                 fs_config = path
                 break
         else:
             raise ValueError("No config file found. Please create ~/.fs_db_rdbsh")
+
         self.fs = FSDatabase(fs_config)
         shell_context.USER = params.user
         self.argv = None
-        # self.cmd_path = Path(f"{self.workspace}").joinpath(RdbShell.RUN_COMMAND_FILENAME)
+        self.workspace = Path(workspace)
         
         self.context = shell_context
-        # ensure that command file is executable
+        self.completer_matches = None
 
     @staticmethod
     def parse_args():
@@ -58,7 +73,11 @@ class RdbShell:
         try:
             done = False
             while not done:
-                yield self.ask()
+                try:
+                    yield self.ask()
+                except KeyboardInterrupt:
+                    print()
+                    pass
         except EOFError:
             print()
             pass
@@ -87,6 +106,7 @@ class RdbShell:
         return True
 
     def _run_file(self, runnable_file, dbfile):
+        retcode = -1
         cmd_path = Path(runnable_file.name)
         if dbfile.is_system_utility():
             try:
@@ -95,11 +115,11 @@ class RdbShell:
                     FS=self.fs,
                     ARGV=self.argv
                 ), run_name="__rdbsh__")
-            except SystemExit:
-                pass
+            except SystemExit as e:
+                retcode = e.code
         else:
             self.warn("Running command in system shell")
-            call((str(cmd_path),) + self.argv, shell=True)
+            retcode = call((str(cmd_path),) + self.argv, shell=True)
 
     def _split_path(self, path):
         for dir_path in path.split(":"):
@@ -107,28 +127,149 @@ class RdbShell:
                 directory = Directory(self.fs, dir_path)
                 yield directory
 
+    def execute_set_var(self, var, new_val):
+        # NOTE: Setting to subshell would be nice, but risky
+        # NOTE: Should probably add this feature only after strings are added
+        setattr(shell_context, var, new_val)
+
+    def _replace_vars(self, cmd):
+        if "$" not in cmd:
+            return cmd
+        user_vars = filter(lambda v: not RdbShell.SYS_VAR_MATCHER.match(v), vars(shell_context))
+        cmd = cmd.split('"')
+        for cmd_idx, unescaped in enumerate(cmd):
+            if cmd_idx % 2:
+                continue
+            unescaped = unescaped.split(" ")
+            for idx, sub_cmd in enumerate(unescaped):
+                if "$" not in sub_cmd:
+                    continue
+                for match in RdbShell.VAR_ITERATOR.finditer(sub_cmd):
+                    matched = None
+                    if match.group(1) in user_vars:
+                        matched = vars(shell_context)[match.group(1)]
+                    elif match.group(1) == "?":
+                        matched = str(shell_context.__status__)
+                    else:
+                        continue
+                    sub_cmd = list(sub_cmd)
+                    sub_cmd[match.start():match.end()] = matched
+                    sub_cmd = "".join(sub_cmd)
+                unescaped[idx] = sub_cmd
+            cmd[cmd_idx] = " ".join(unescaped)
+        return '"'.join(cmd)
+
+    def _expand_cmd_globbing(self, cmd):
+        cmd = cmd.split('"')
+        for cmd_idx, unescaped in enumerate(cmd):
+            if cmd_idx % 2:
+                continue
+            unescaped = unescaped.split(" ")
+            for idx, sub_cmd in enumerate(unescaped):
+                if any(char in sub_cmd for char in RdbShell.GLOB_CHARACTERS):
+                    matches = self.expand_globbing(sub_cmd)
+                    unescaped[idx] = " ".join(matches) if matches else sub_cmd
+            
+            cmd[cmd_idx] = " ".join(unescaped)
+        return '"'.join(cmd)
+
+    def _extract_argv(self, cmd):
+        argv = []
+        cmd = cmd.split('"')
+        for cmd_idx, unescaped in enumerate(cmd):
+            if cmd_idx % 2:
+                if argv:
+                    argv[-1] += unescaped
+                else:
+                    argv.append(unescaped)
+                continue
+                
+            split_peices = unescaped.split(" ")
+            if len(split_peices) > 2:
+                split_peices[1:-1] = tuple(filter(bool, split_peices[1:-1]))
+            if argv:
+                argv[-1] += split_peices.pop(0)
+            argv.extend(split_peices)
+        return argv
+
+    @staticmethod
+    def _contains_unescaped(string, char):
+        escaped = string.split('"')
+        if not len(escaped) % 2:
+            return
+        current_len = 0
+        for idx, substr in enumerate(escaped):
+            if not idx % 2 and char in substr:
+                return current_len + substr.index(char)
+            current_len += len(substr) + 1
+        return
+
     def execute(self, cmd):
         # would be cool if globs were expanded by the shell instead of the scripts ...
-        argv = tuple(arg.strip() for arg in cmd.split(" "))
-        if argv == ("exit",):
+        var_setter = RdbShell.VAR_SET_MATCHER.match(cmd)
+        if var_setter:
+            self.execute_set_var(*var_setter.group(1, 2))
+            shell_context.__status__ = 0
+            return
+        if cmd.count('"') % 2:
+            self.warn("Unmatched quotation marks")
+            return
+        write_mode = None
+        write_file = None
+        first_pipe = RdbShell._contains_unescaped(cmd, ">")
+        if first_pipe is not None:
+            write_mode = RdbShellWriteMode.WRITE
+            write_file = cmd[first_pipe:]
+            cmd = cmd[:first_pipe]
+            if write_file.startswith(">"):
+                write_mode = RdbShellWriteMode.APPEND
+                write_file = write_file[1:]
+            write_file = write_file.strip()
+            if " " in write_file or '"' in write_file:
+                self.warn("Spaces and quotation marks are illegal after a file redirect.")
+                return
+
+        cmd = self._replace_vars(cmd)
+        print(cmd)
+        cmd = self._expand_cmd_globbing(cmd)
+        argv = self._extract_argv(cmd)
+
+        if not argv:
+            return
+        if argv[0] == "exit":
+            if  len(argv) > 2:
+                self.warn("exit: too many arguments")
+                return
             self.exit()
         command = argv[0]
         command_file = None
-        for directory in self._split_path(shell_context.PATH):
-            command_file = directory.get_file(command)
-            if command_file is not None:
-                break
+        if "/" in command:
+            try:
+                command_file = File.resolve_to(self.fs, command, RegularFile)
+            except IncorrectFileTypeError:
+                self.warn(f"'{command}': Is a directory")
+                return
+            except MissingFileError:
+                self.warn(f"Command '{command}' not found")
+                return
         else:
-            self.warn(f"Command '{argv[0]}' not found")
-            return
-
-        with NamedTemporaryFile("w+", dir=".") as f:
+            for directory in self._split_path(shell_context.PATH):
+                command_file = directory.get_file(command)
+                if command_file is not None:
+                    break
+            else:
+                self.warn(f"Command '{command}' not found")
+                return
+        
+        status = 0
+        with open(self.workspace.joinpath(command_file.name), "w+") as f:
             cmd_path = Path(f.name)
             chmod(cmd_path, cmd_path.stat().st_mode & (S_IRWXU | S_IRWXG | S_IRWXO) & (S_IXGRP | S_IXUSR | S_IXOTH))
             if self._load_file(f, command_file):
                 self.argv = argv[1:]
-                self._run_file(f, command_file)
-
+                status = self._run_file(f, command_file)
+        remove(self.workspace.joinpath(command_file.name))
+        shell_context.__status__ = status
 
     def ask(self):
         shell_power = "$"
@@ -138,7 +279,104 @@ class RdbShell:
         for cmd in self.parse_cmd(inpt):
             self.execute(cmd)
 
+    def expand_globbing(self, path):
+        # Preserve these because pathlib will toss 'em out
+        prefix = "./" if path.startswith("./") else ""
+        suffix = "/" if path.endswith("/") else ""
+        paths = ["."]
+        parts = PurePosixPath(path).parts
+
+        for part_idx, part in enumerate(parts):
+            if any(char in part for char in RdbShell.GLOB_CHARACTERS):
+                new_paths = []
+                preferred_type = File if not (part_idx == len(parts) - 1 and suffix) else Directory
+                for path in paths:
+                    with suppress(MissingFileError, IncorrectFileTypeError):
+                        curr_dir = File.resolve_to(self.fs, path, Directory)
+                        part = self._glob_to_sql(part)
+                        for child in curr_dir.get_children_like(part):
+                            if isinstance(child, preferred_type):
+                                new_paths.append(PurePosixPath(path, child.name))
+                paths = new_paths
+            else:
+                for idx, path in enumerate(paths):
+                    paths[idx] = PurePosixPath(path, part)
+        new_paths = []
+        # Verify all paths and 
+        for idx, path in enumerate(paths):
+            with suppress(MissingFileError):
+                File(self.fs, path.parent)
+                new_paths.append(prefix + str(path) + suffix)
+        return new_paths
+
+    def get_all_commands_like(self, text):
+        matches = []
+        for directory in self._split_path(shell_context.PATH):
+            matches.extend(f.name for f in directory.get_children_like(text + "%"))
+        return matches
+
+    def get_all_paths_like(self, path):
+        matches = []
+        if any(char in path for char in RdbShell.GLOB_CHARACTERS):
+            matches = self.expand_globbing(path)
+            return [" ".join(matches)] if matches else []
+        prefix = "./" if path.startswith("./") else ""
+        dir_path = PurePosixPath(path)
+        name = ""
+        if not path.endswith("/"):
+            path = PurePosixPath(path)
+            dir_path = path.parent
+            name = path.name
+        # print(f"({path_dir}, {name})")
+        with suppress(MissingFileError, IncorrectFileTypeError):
+            directory = File.resolve_to(self.fs, dir_path)
+            matches.extend(prefix + str(dir_path.joinpath(f.name)) for f in directory.get_children_like(name + "%"))
+        return matches
+
+    def get_all_variables_like(self, text):
+        def _is_user_variable(v):
+            return RdbShell.SYS_VAR_MATCHER.match(v) is None and v.startswith(text)
+        return list(filter(_is_user_variable, vars(shell_context)))
+
+    def load_autocomplete_matches(self, text):
+        line = readline.get_line_buffer()
+        line_args = tuple(filter(bool, (arg.strip() for arg in line.split(" "))))
+        
+        # Do not handle quotation marks at all
+        if line.count('"') % 2:
+            return []
+        if '"' in text:
+            return []
+        
+        # Handle variables
+        if len(text) < len(line) and line[-(len(text) + 1)] == "$":
+            self.completer_matches = self.get_all_variables_like(text)
+            return
+        
+        # handle files/commands
+        current_arg = len(line_args) - int(bool(text))
+        completions = None
+        # print(f"({current_arg}, {text})")
+        if current_arg == 0:
+            if not text or "/" not in text:
+                completions = self.get_all_commands_like(text)
+        if completions is None:
+            if not text:
+                completions = self.get_all_paths_like("./") + [".", ".."]
+            else:
+                completions = self.get_all_paths_like(text)
+        self.completer_matches = completions
+
+    def autocomplete(self, text, state):
+        if self.completer_matches is None:
+            self.load_autocomplete_matches(text)
+        if state < len(self.completer_matches):
+            return self.completer_matches[state]
+        self.completer_matches = None
+        return None
+
     def warn(self, msg):
+        shell_context.__status__ = -1
         print(f"ERROR: {msg}")
 
     def exit(self):
@@ -149,5 +387,9 @@ class RdbShell:
 
 if __name__ == "__main__":
     with TemporaryDirectory(prefix=RdbShell.RUN_WORKSPACE, dir=Path()) as wkspc:
-        for _ in RdbShell(RdbShell.parse_args()):
+        shell = RdbShell(RdbShell.parse_args(), workspace=wkspc)
+        readline.set_completer_delims(">$ ")
+        readline.set_completer(shell.autocomplete)
+        readline.parse_and_bind("tab: complete")
+        for _ in shell:
             pass 

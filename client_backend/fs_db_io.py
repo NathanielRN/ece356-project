@@ -366,7 +366,7 @@ class FSDatabase:
         # TODO: Might wanna add this to API
         fid = self.find_file_in_dir(parent, path.name)
 
-        if resolve_link and self.get_type(fid) is SymbolicLink:
+        while resolve_link and self.get_type(fid) is SymbolicLink:
             fid = self.resolve_link(SymbolicLink(self, fid)).fid
         return fid
 

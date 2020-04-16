@@ -11,9 +11,15 @@ from stat import S_IRWXU, S_IRWXG, S_IRWXO
 from os import PathLike, strerror
 from datetime import datetime
 
+
 class MissingFileError(IOError):
     def __init__(self, path):
         super().__init__(errno.ENOENT, strerror(errno.ENOENT), path)
+
+
+class IncorrectFileTypeError(ValueError):
+    pass
+
 
 class File:
     def __new__(cls, *args, **kwargs):
@@ -28,7 +34,6 @@ class File:
             raise ValueError("Did not provide filesystem DB connection")
         if create_if_missing and cls is File:
             raise ValueError("Attempting an untyped file")
-
 
         inst = super().__new__(cls)
         inst.fs_db = fs_db
@@ -47,16 +52,27 @@ class File:
         if inst_type is None:
             raise ValueError(f"Invalid File ID = '{path_or_id}'")
         if not issubclass(inst_type, cls):
-            raise ValueError(f"Trying to create instance of type {cls.__name__} "
+            raise IncorrectFileTypeError(f"Trying to create instance of type {cls.__name__} "
                              f"when file is {inst_type.__name__}. "
                              "Use generic types if type is unknown")
         return inst if inst_type is cls else inst_type(fs_db, inst.fid)
-
 
     def __init__(self, fs_db, path_or_id, create_if_missing=False):
         if not self.fid and isinstance(path_or_id, (PathLike, str)) and create_if_missing:
             path = path_or_id
             self.fid = self.fs_db.add_file(path)
+
+    @staticmethod
+    def resolve_to(fs_db, path, file_type):
+        f = File(fs_db, path)
+        while isinstance(f, SymbolicLink):
+            f = f.resolve()
+            if f is None:
+                raise MissingFileError(path)
+        if not isinstance(f, file_type):
+            raise IncorrectFileTypeError()
+        return f
+        
 
     @property
     def permissions(self):
@@ -81,7 +97,7 @@ class File:
     @property
     def size(self):
         return self.fs_db.get_size(self)
-    
+
     @property
     def full_name(self):
         return self.fs_db.get_full_name(self)
@@ -117,7 +133,6 @@ class File:
     @property
     def created_date(self):
         return self.fs_db.get_created_date(self)
-
 
     @property
     def num_of_hard_links(self):
@@ -155,6 +170,7 @@ class File:
         assert own_type is type(self)
         return own_type
 
+
 class SymbolicLink(File):
     def __init__(self, fs_db, path_or_id, create_if_missing=False, linked_path=None):
         if create_if_missing and linked_path is None:
@@ -178,9 +194,10 @@ class SymbolicLink(File):
         self.modify()
 
     def resolve(self):
-        resolved =  self.fs_db.resolve_link(self)
+        resolved = self.fs_db.resolve_link(self)
         self.open()
         return resolved
+
 
 class Directory(File):
     def __init__(self, fs_db, path_or_id, create_if_missing=False):
@@ -214,6 +231,7 @@ class Directory(File):
         if not recursive and not self.empty():
             raise ValueError("Cannot remove non-empty directory")
         super().remove(self)
+
 
 class RegularFile(File):
     def __init__(self, fs_db, path_or_id, create_if_missing=False, contents=None):

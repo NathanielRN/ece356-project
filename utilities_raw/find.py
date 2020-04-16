@@ -32,16 +32,19 @@ def main(args):
     if '*' in pattern_components[-1]:
         foundFiles = list(search_directory.get_children_like(pattern_components[-1].replace('*', '%'), search_subdirs=True))
 
-        if foundFiles.empty:
-            raise ValueError(f"'{pattern_components[-1]}': No such file or directory")
+        if foundFiles.empty():
+            print(f"'{pattern_components[-1]}': No such file or directory")
+            return 1
         
         matched_files = list(foundFiles)
     else:
         matched = search_directory.get_file(pattern_components[-1])
         if matched is None:
-            raise ValueError(f"'{pattern_components[-1]}': No such file or directory")
+            print(f"'{pattern_components[-1]}': No such file or directory")
+            return 1
         elif matched.type is Directory:
-            raise ValueError(f"'{matched.name}' is a directory.")
+            print(f"'{matched.name}' is a directory.")
+            return 1
         matched_files = [matched]
 
     for curr_file in matched_files:
@@ -72,4 +75,3 @@ if __name__ == "__main__":
 
 if __name__ == "__rdbsh__":
     main(parse_args())
-

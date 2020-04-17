@@ -15,12 +15,13 @@ import readline
 from stat import S_IRWXU, S_IRWXG, S_IRWXO
 from stat import S_IXUSR, S_IXGRP, S_IXOTH
 from enum import Enum, auto
+from io import StringIO
 from os import chmod, remove
 from pathlib import PurePosixPath, Path
 from argparse import ArgumentParser
 from runpy import run_path
-from subprocess import call
-from contextlib import suppress
+from subprocess import run as run_sys
+from contextlib import suppress, redirect_stdout
 from tempfile import TemporaryDirectory, NamedTemporaryFile
 
 DEFAULT_FS_DB_CONFIG = (
@@ -105,21 +106,31 @@ class RdbShell:
         runnable_file.flush()
         return True
 
-    def _run_file(self, runnable_file, dbfile):
+    def _run_file(self, runnable_file, dbfile, redirect_type=None, write_file=None):
         retcode = -1
         cmd_path = Path(runnable_file.name)
+        stdout_collector = StringIO()
+        stdout_redirector = None
+        if redirect_type is None:
+            stdout_redirector = write_file.write if redirect_type is RdbShellWriteMode.WRITE else write_file.append
         if dbfile.is_system_utility():
             try:
-                run_path(cmd_path, init_globals=dict(
-                    SHELL=self.context,
-                    FS=self.fs,
-                    ARGV=self.argv
-                ), run_name="__rdbsh__")
+                with redirect_stdout(stdout_collector):
+                    run_path(cmd_path, init_globals=dict(
+                        SHELL=self.context,
+                        FS=self.fs,
+                        ARGV=self.argv
+                    ), run_name="__rdbsh__")
+                stdout_redirector(stdout_collector.readlines())
             except SystemExit as e:
                 retcode = e.code
         else:
             self.warn("Running command in system shell")
-            retcode = call((str(cmd_path),) + self.argv, shell=True)
+            resp = run_sys((str(cmd_path),) + self.argv, shell=True, capture_output=True)
+            stdout_collector.write(resp.stdout)
+            retcode = resp.returncode
+            if not retcode:
+                stdout_redirector(stdout_collector.readlines())
 
     def _split_path(self, path):
         for dir_path in path.split(":"):
@@ -228,6 +239,14 @@ class RdbShell:
             if " " in write_file or '"' in write_file:
                 self.warn("Spaces and quotation marks are illegal after a file redirect.")
                 return
+            try:
+                write_file = File.resolve_to(self.fs, write_file, RegularFile)
+            except IncorrectFileTypeError:
+                self.warn(f"'{write_file}': Is a directory")
+                return
+            except MissingFileError:
+                self.warn(f"Command '{write_file}' not found")
+                return
 
         cmd = self._replace_vars(cmd)
         print(cmd)
@@ -267,7 +286,7 @@ class RdbShell:
             chmod(cmd_path, cmd_path.stat().st_mode & (S_IRWXU | S_IRWXG | S_IRWXO) & (S_IXGRP | S_IXUSR | S_IXOTH))
             if self._load_file(f, command_file):
                 self.argv = argv[1:]
-                status = self._run_file(f, command_file)
+                status = self._run_file(f, command_file, redirect_type=write_mode, write_file=write_file)
         remove(self.workspace.joinpath(command_file.name))
         shell_context.__status__ = status
 

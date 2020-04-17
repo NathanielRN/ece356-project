@@ -120,7 +120,12 @@ class FSRegularFileQuery(Enum):
         "(fileID, fileContentID) "
         "VALUES (%(fid)s, %(file_content_id)s)"
     )
+    DB_QUERY_DELETE_ALL_FILE_CONTENT = (
+        "DELETE FROM FileContents "
+        "WHERE fileContentID = (SELECT fileContentID FROM HardLinks WHERE fileID = %(fid)s)"
+    )
     DB_QUERY_DEL_REG_FILE = (
+        DB_QUERY_DELETE_ALL_FILE_CONTENT,
         "DELETE FROM RegularFileMetadata WHERE fileContentID = (SELECT fileContentID FROM HardLinks WHERE fileID=%(fid)s)",
         "DELETE FROM HardLinks WHERE fileID = %(fid)s"
     )
@@ -143,10 +148,6 @@ class FSRegularFileQuery(Enum):
         "INSERT INTO FileContents "
         "SELECT fileContentID, %(line_no)s AS lineNumber, %(line_content)s AS lineContent "
         "FROM HardLinks WHERE fileID=%(fid)s"
-    )
-    DB_QUERY_DELETE_ALL_FILE_CONTENT = (
-        "DELETE FROM FileContents "
-        "WHERE fileContentID = (SELECT fileContentID FROM HardLinks WHERE fileID = %(fid)s)"
     )
     DB_QUERY_GET_FILE_LENGTH = (
         "SELECT MAX(lineNumber) "
@@ -363,7 +364,7 @@ class FSDatabase:
             if parent == FSDatabase.ROOTDIR_ID:
                 return FSDatabase.ROOTDIR_ID
             return parent_type(self, parent).get_parent_directory().fid or FSDatabase.ROOTDIR_ID
-        # TODO: Might wanna add this to API
+
         fid = self.find_file_in_dir(parent, path.name)
 
         while resolve_link and self.get_type(fid) is SymbolicLink:
@@ -449,8 +450,24 @@ class FSDatabase:
             self.connection.commit()
 
     def remove(self, entity):
-        # TODO: Not needed by anyone and is kind of a pain to write so leaving for now
-        raise NotImplementedError
+        with self:
+            if isinstance(entity, User):
+                self._execute_queries(FSUserQuery.DB_QUERY_DEL_USER, {"uid": entity.uid})
+            elif isinstance(entity, Group):
+                self._execute_queries(FSUserQuery.DB_QUERY_DEL_GROUP, {"gid": entity.gid})
+            elif isinstance(entity, File):
+                query_map = {
+                    Directory: FSDirectoryQuery.DB_QUERY_DEL_DIRECTORY,
+                    RegularFile: FSRegularFileQuery.DB_QUERY_DEL_REG_FILE,
+                    SymbolicLink: FSSymbolicLinkQuery.DB_QUERY_DEL_SYMBOLIC_LINK,
+                }
+                self._execute_queries(query_map[entity.type], {"fid": entity.fid})
+                self._execute_queries(FSGenericFileQuery.DB_QUERY_DEL_FILE, {"fid": entity.fid})
+
+    def remove_hardlink(self, file_entity):
+        with self:
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_DEL_HARDLINK, {"fid": file_entity.fid})
+
 
     """
     Getters and Setters

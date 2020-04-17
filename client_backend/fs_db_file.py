@@ -221,6 +221,7 @@ class Directory(File):
 
     def get_children_like(self, pattern, search_subdirs=False):
         yield from self.fs_db.get_children_like(self, pattern, search_subdirs)
+        self.open()
 
     def empty(self):
         for _ in self.walk():
@@ -228,8 +229,12 @@ class Directory(File):
         return True
 
     def remove(self, recursive=False):
-        if not recursive and not self.empty():
-            raise ValueError("Cannot remove non-empty directory")
+        for child in self.walk():
+            if not recursive:
+                raise ValueError("Cannot remove non-empty directory")
+            if isinstance(child, Directory):
+                child.remove(recursive=True)
+            child.remove()
         super().remove(self)
 
 
@@ -245,6 +250,12 @@ class RegularFile(File):
     @property
     def num_of_hard_links(self):
         return self.fs_db.count_hardlinks(self)
+
+    def remove(self):
+        if self.num_of_hard_links > 1:
+            self.fs_db.remove_hardlink(self)
+        else:
+            super().remove()
 
     def hardlink(self, path):
         return self.fs_db.add_hardlink(self, path)

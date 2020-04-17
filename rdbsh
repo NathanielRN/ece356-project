@@ -239,14 +239,24 @@ class RdbShell:
             if " " in write_file or '"' in write_file:
                 self.warn("Spaces and quotation marks are illegal after a file redirect.")
                 return
+            #Verify parent directory
+            try:
+                File.resolve_to(self.fs, PurePosixPath(write_file).parent, Directory)
+            except IncorrectFileTypeError:
+                self.warn(f"'{write_file}': Not a directory")
+                return
+            except MissingFileError:
+                self.warn(str(MissingFileError(write_file)))
+                return
+
+            # Verify/Load file
             try:
                 write_file = File.resolve_to(self.fs, write_file, RegularFile)
             except IncorrectFileTypeError:
                 self.warn(f"'{write_file}': Is a directory")
                 return
             except MissingFileError:
-                self.warn(f"Command '{write_file}' not found")
-                return
+                write_file = RegularFile(self.fs, write_file, create_if_missing=True)
 
         cmd = self._replace_vars(cmd)
         print(cmd)

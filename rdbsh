@@ -72,12 +72,19 @@ class RdbShell:
         self.hist_start = 0
 
     def load_history(self):
+        try:
+            hist_file = RegularFile(self.fs,  RdbShell.HISTFILE_NAME, create_if_missing=True, contents="")
+            hist_contents = "\n".join(hist_file.readlines()) + "\n"
+        except (ValueError, MissingFileError, IncorrectFileTypeError) as e:
+            self.warn("Couldn't open history file")
+            return
+
         hist_path = self.workspace.joinpath(RdbShell.PERSISTENT_WORKSPACE, RdbShell.HISTFILE_NAME)
-        hist_file = RegularFile(self.fs,  RdbShell.HISTFILE_NAME, create_if_missing=True, contents="")
         hist_start = 0
         try:
-            with open(hist_path, "w") as f:
-                f.writelines(hist_file.readlines())
+            if hist_contents.strip():
+                with open(hist_path, "w") as f:
+                    f.write(hist_contents)
             readline.read_history_file(str(hist_path))
             hist_start = readline.get_current_history_length()
         except FileNotFoundError:
@@ -85,9 +92,14 @@ class RdbShell:
         self.hist_start = hist_start
 
     def save_history(self):
+        try:
+            hist_file = RegularFile(self.fs,  RdbShell.HISTFILE_NAME, create_if_missing=True, contents="")
+        except (ValueError, MissingFileError, IncorrectFileTypeError) as e:
+            self.warn("Couldn't open history file")
+            return
+
         hist_start = self.hist_start
         hist_path = self.workspace.joinpath(RdbShell.PERSISTENT_WORKSPACE, RdbShell.HISTFILE_NAME)
-        hist_file = RegularFile(self.fs,  RdbShell.HISTFILE_NAME)
         hist_end = readline.get_current_history_length()
         readline.set_history_length(1000)
         readline.append_history_file(hist_end - hist_start, hist_path)
@@ -104,20 +116,17 @@ class RdbShell:
 
     def __iter__(self):
         try:
-            try:
-                done = False
-                while not done:
-                    try:
-                        yield self.ask()
-                    except KeyboardInterrupt:
-                        print()
-                        pass
-            except EOFError:
-                print()
-                pass
-        except Exception:
-            shell.save_history()
-            raise
+            done = False
+            while not done:
+                try:
+                    yield self.ask()
+                except KeyboardInterrupt:
+                    print()
+                    pass
+        except EOFError:
+            print()
+            pass
+        shell.save_history()
 
     @staticmethod
     def _glob_to_sql(glob):
@@ -271,7 +280,7 @@ class RdbShell:
         first_pipe = RdbShell._contains_unescaped(cmd, ">")
         if first_pipe is not None:
             write_mode = RdbShellWriteMode.WRITE
-            write_file = cmd[first_pipe:]
+            write_file = cmd[first_pipe+1:]
             cmd = cmd[:first_pipe]
             if write_file.startswith(">"):
                 write_mode = RdbShellWriteMode.APPEND

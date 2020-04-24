@@ -3,6 +3,7 @@
 
 Note: Change shebang to `rdbsh` to use has system utility with shell
 """
+from sys import exit
 from argparse import ArgumentParser
 
 from client_backend.fs_db_file import Directory, SymbolicLink
@@ -30,7 +31,7 @@ def main(args):
 
     matched_files = None
     if '*' in pattern_components[-1]:
-        foundFiles = list(search_directory.get_children_like(pattern_components[-1].replace('*', '%'), search_subdirs=True))
+        foundFiles = list(search_directory.get_children_like(pattern_components[-1], search_subdirs=True))
 
         if foundFiles.empty():
             print(f"'{pattern_components[-1]}': No such file or directory")
@@ -71,7 +72,7 @@ if __name__ == "__main__":
     FS = FSDatabase('.fs_db_rdbsh')
     ARGV = sys.argv[1:]
     SHELL = shell_context
-    main(parse_args())
+    exit(main(parse_args()))
 
 if __name__ == "__rdbsh__":
-    main(parse_args())
+    exit(main(parse_args()))

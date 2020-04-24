@@ -3,9 +3,11 @@
 
 Note: Change shebang to `rdbsh` to use has system utility with shell
 """
+from sys import exit
 from argparse import ArgumentParser
 
-from client_backend.fs_db_file import Directory, MissingFileError
+from client_backend.fs_db_file import File, Directory, RegularFile, IncorrectFileTypeError, MissingFileError
+from client_backend.fs_db_io import FSDatabase
 
 def parse_args():
     global ARGV
@@ -17,11 +19,14 @@ def parse_args():
 def main(args):
     global FS, SHELL
     try:
-        new_dir = Directory(FS, args.path_to_change_to)
+        new_dir = File.resolve_to(FS, args.path_to_change_to, Directory)
+        SHELL.PWD = args.path_to_change_to
     except MissingFileError:
-        print (f"cd: No such directory")
+        print(f"cd: '{args.path_to_change_to}': No such file or directory.")
         return 1
-    SHELL.PWD = new_dir.full_name
+    except IncorrectFileTypeError:
+        print(f"cd: '{args.path_to_change_to}': Not a directory.")
+        return 1
 
 
 if __name__ == "__main__":
@@ -30,8 +35,8 @@ if __name__ == "__main__":
     FS = FSDatabase('.fs_db_rdbsh')
     ARGV = sys.argv[1:]
     SHELL = shell_context
-    main(parse_args())
+    exit(main(parse_args()))
 
 if __name__ == "__rdbsh__":
-    main(parse_args())
+    exit(main(parse_args()))
 

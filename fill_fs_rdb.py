@@ -29,12 +29,12 @@ def _to_db_path(path):
 
 def insertDataIntoDB(x, fs_db):
     print(f'Copying & Uploading: {x.as_posix()}')
-    if x.is_dir():
+    if x.is_symlink():
+        SymbolicLink(fs_db, _to_db_path(x), create_if_missing=True, linked_path=_to_db_path(x.resolve(strict=False)))
+    elif x.is_dir():
         Directory(fs_db, _to_db_path(x), create_if_missing=True)
         for x_child in x.iterdir():
             insertDataIntoDB(x_child, fs_db)
-    elif x.is_symlink():
-        SymbolicLink(fs_db, _to_db_path(x), create_if_missing=True, linked_path=_to_db_path(x.resolve(strict=False)))
     elif x.is_file():
         db_file = RegularFile(fs_db, _to_db_path(x), create_if_missing=True, contents="")
         # NOTE: Unix doesn't return the original creator, so we just call the user the author

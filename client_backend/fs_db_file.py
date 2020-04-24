@@ -20,8 +20,14 @@ class MissingFileError(IOError):
 class IncorrectFileTypeError(ValueError):
     pass
 
+class TooManyLinkError(IOError):
+    def __init__(self, path):
+        super().__init__(errno.EMLINK, strerror(errno.EMLINK), path)
+    pass
+
 
 class File:
+    MAX_LINK_DEPTH = 256
     def __new__(cls, *args, **kwargs):
         """
         Does error checking/reporting on instantiation of object
@@ -64,11 +70,18 @@ class File:
 
     @staticmethod
     def resolve_to(fs_db, path, file_type):
+        not_at_max_depth = File.MAX_LINK_DEPTH
         f = File(fs_db, path)
-        while isinstance(f, SymbolicLink):
+        if isinstance(f, file_type):
+            return f
+        while isinstance(f, SymbolicLink) and not_at_max_depth:
             f = f.resolve()
             if f is None:
                 raise MissingFileError(path)
+            not_at_max_depth -= 1
+        
+        if isinstance(f, SymbolicLink):
+            raise TooManyLinkError(path)
         if not isinstance(f, file_type):
             raise IncorrectFileTypeError()
         return f

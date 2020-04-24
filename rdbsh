@@ -50,6 +50,7 @@ class RdbShell:
         fs_config = None
 
         for path in config_paths:
+            path = Path(path).expanduser()
             if Path(path).exists():
                 fs_config = path
                 break

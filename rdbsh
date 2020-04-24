@@ -16,7 +16,7 @@ from stat import S_IRWXU, S_IRWXG, S_IRWXO
 from stat import S_IXUSR, S_IXGRP, S_IXOTH
 from enum import Enum, auto
 from io import StringIO
-from os import chmod, remove
+from os import chmod, remove, mkdir
 from pathlib import PurePosixPath, Path
 from argparse import ArgumentParser
 from runpy import run_path
@@ -36,6 +36,8 @@ class RdbShellWriteMode(Enum):
 class RdbShell:
     RUN_WORKSPACE = ".rdbsh_workspace_"
     RUN_COMMAND_FILENAME = "_to_run"
+    PERSISTENT_WORKSPACE = "._persistent"
+    HISTFILE_NAME = ".history"
     VAR_SET_MATCHER = re.compile(r"^\s*(\w+)\s*=(.*)$")
     SYS_VAR_MATCHER = re.compile(r"^__\w+__$")
     VAR_ITERATOR = re.compile(r"\$(\w+|\?)")
@@ -57,10 +59,39 @@ class RdbShell:
         self.fs = FSDatabase(fs_config)
         shell_context.USER = params.user
         self.argv = None
+        # All executing files end up here, only one file should be running at a time anyways
         self.workspace = Path(workspace)
-        
+        # Internal persistent files end up here to prevent overlap
+        # Side effect is that no command can have this name
+        mkdir(self.workspace.joinpath(RdbShell.PERSISTENT_WORKSPACE))
+
         self.context = shell_context
         self.completer_matches = None
+        histfile = None
+        self.hist_start = 0
+
+    def load_history(self):
+        hist_path = self.workspace.joinpath(RdbShell.PERSISTENT_WORKSPACE, RdbShell.HISTFILE_NAME)
+        hist_file = RegularFile(self.fs,  RdbShell.HISTFILE_NAME, create_if_missing=True, contents="")
+        hist_start = 0
+        try:
+            with open(hist_path, "w") as f:
+                f.writelines(hist_file.readlines())
+            readline.read_history_file(str(hist_path))
+            hist_start = readline.get_current_history_length()
+        except FileNotFoundError:
+            open(hist_path, 'wb').close()
+        self.hist_start = hist_start
+
+    def save_history(self):
+        hist_start = self.hist_start
+        hist_path = self.workspace.joinpath(RdbShell.PERSISTENT_WORKSPACE, RdbShell.HISTFILE_NAME)
+        hist_file = RegularFile(self.fs,  RdbShell.HISTFILE_NAME)
+        hist_end = readline.get_current_history_length()
+        readline.set_history_length(1000)
+        readline.append_history_file(hist_end - hist_start, hist_path)
+        with open(hist_path) as f:
+            hist_file.write(f.read())
 
     @staticmethod
     def parse_args():
@@ -72,16 +103,20 @@ class RdbShell:
 
     def __iter__(self):
         try:
-            done = False
-            while not done:
-                try:
-                    yield self.ask()
-                except KeyboardInterrupt:
-                    print()
-                    pass
-        except EOFError:
-            print()
-            pass
+            try:
+                done = False
+                while not done:
+                    try:
+                        yield self.ask()
+                    except KeyboardInterrupt:
+                        print()
+                        pass
+            except EOFError:
+                print()
+                pass
+        except Exception:
+            shell.save_history()
+            raise
 
     @staticmethod
     def _glob_to_sql(glob):
@@ -111,7 +146,7 @@ class RdbShell:
         cmd_path = Path(runnable_file.name)
         stdout_collector = StringIO()
         stdout_redirector = None
-        if redirect_type is None:
+        if redirect_type is not None:
             stdout_redirector = write_file.write if redirect_type is RdbShellWriteMode.WRITE else write_file.append
         if dbfile.is_system_utility():
             try:
@@ -121,16 +156,21 @@ class RdbShell:
                         FS=self.fs,
                         ARGV=self.argv
                     ), run_name="__rdbsh__")
-                stdout_redirector(stdout_collector.readlines())
             except SystemExit as e:
                 retcode = e.code
+            if stdout_redirector:
+                stdout_redirector(stdout_collector.readlines())
+            else:
+                print(stdout_collector.getvalue(), end="")
         else:
             self.warn("Running command in system shell")
             resp = run_sys((str(cmd_path),) + self.argv, shell=True, capture_output=True)
             stdout_collector.write(resp.stdout)
             retcode = resp.returncode
-            if not retcode:
+            if not retcode and stdout_redirector:
                 stdout_redirector(stdout_collector.readlines())
+            elif not stdout_redirector:
+                print(stdout_collector.getvalue(), end="")
 
     def _split_path(self, path):
         for dir_path in path.split(":"):
@@ -259,7 +299,7 @@ class RdbShell:
                 write_file = RegularFile(self.fs, write_file, create_if_missing=True)
 
         cmd = self._replace_vars(cmd)
-        print(cmd)
+        # print(cmd)
         cmd = self._expand_cmd_globbing(cmd)
         argv = self._extract_argv(cmd)
 
@@ -306,7 +346,8 @@ class RdbShell:
             shell_power = "#"
         inpt = input(f"{User(self.fs, shell_context.USER).name}@{shell_context.PWD}{shell_power} ")
         for cmd in self.parse_cmd(inpt):
-            self.execute(cmd)
+            if cmd:
+                self.execute(cmd)
 
     def expand_globbing(self, path):
         # Preserve these because pathlib will toss 'em out
@@ -358,7 +399,7 @@ class RdbShell:
             name = path.name
         # print(f"({path_dir}, {name})")
         with suppress(MissingFileError, IncorrectFileTypeError):
-            directory = File.resolve_to(self.fs, dir_path)
+            directory = File.resolve_to(self.fs, dir_path, Directory)
             matches.extend(prefix + str(dir_path.joinpath(f.name)) for f in directory.get_children_like(name + "%"))
         return matches
 
@@ -373,15 +414,18 @@ class RdbShell:
         
         # Do not handle quotation marks at all
         if line.count('"') % 2:
-            return []
+            self.completer_matches = []
+            return
         if '"' in text:
-            return []
-        
+            self.completer_matches = []
+            return
+
+
         # Handle variables
         if len(text) < len(line) and line[-(len(text) + 1)] == "$":
             self.completer_matches = self.get_all_variables_like(text)
             return
-        
+
         # handle files/commands
         current_arg = len(line_args) - int(bool(text))
         completions = None
@@ -389,6 +433,7 @@ class RdbShell:
         if current_arg == 0:
             if not text or "/" not in text:
                 completions = self.get_all_commands_like(text)
+
         if completions is None:
             if not text:
                 completions = self.get_all_paths_like("./") + [".", ".."]
@@ -417,6 +462,7 @@ class RdbShell:
 if __name__ == "__main__":
     with TemporaryDirectory(prefix=RdbShell.RUN_WORKSPACE, dir=Path()) as wkspc:
         shell = RdbShell(RdbShell.parse_args(), workspace=wkspc)
+        shell.load_history()
         readline.set_completer_delims(">$ ")
         readline.set_completer(shell.autocomplete)
         readline.parse_and_bind("tab: complete")

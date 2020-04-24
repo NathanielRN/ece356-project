@@ -13,10 +13,15 @@ hon 3.X+
   * PIP
 MySQL 8.0+
 
-# Steps to Run Our Project
-1. Create an empty MySQL Database `CREATE <database_name>` and run `USE <database_name>`
-2. Run `SOURCE fs_schema.sql` within the mysql database 
-3. Copy .fs_db_rdbsh template and store it in ./.fs_db_rdbsh
-4. Fill in ./.fs_db.rdbsh with database information
-5. (Optional) Fill the database with data by running `./fill_fs_rd.py`
-6. Run `rdbsh` to enter the fill system
+# Steps Before you Run Our Project
+1. If you don't have it, download python pip using `sudo apt install python3-pip`
+2. Install the mysql connector using pip `apt install mysql-connector-python`
+3. Create an empty MySQL Database `CREATE <database_name>` and run `USE <database_name>`
+4. Run `SOURCE fs_schema.sql` within the mysql database 
+5. Copy .fs_db_rdbsh template and store it in ./.fs_db_rdbsh or ~/.fs_db_rdbsh
+6. Fill in ./.fs_db.rdbsh with database information
+7. (Optional) Fill the database with data by running `./fill_fs_rd.py`
+
+# Navigating the File System
+1. Run `./rdbsh` to enter the file system
+2. To exit, press Ctrl+D

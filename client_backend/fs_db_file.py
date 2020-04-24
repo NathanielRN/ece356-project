@@ -28,14 +28,12 @@ class TooManyLinkError(IOError):
 
 class File:
     MAX_LINK_DEPTH = 256
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, fs_db, path_or_id, *args, create_if_missing=False, **kwargs):
         """
         Does error checking/reporting on instantiation of object
 
         Ensures that Python type of object == actual type of file
         """
-        fs_db, path_or_id = args
-        create_if_missing = kwargs.get("create_if_missing")
         if not fs_db:
             raise ValueError("Did not provide filesystem DB connection")
         if create_if_missing and cls is File:

@@ -383,7 +383,8 @@ class FSDatabase:
     def _verify_root(self):
         User(self, FSDatabase.ROOTUSER_ID, create_if_missing=True, user_name="root")
         if self.get_type(FSDatabase.ROOTDIR_ID) is None:
-            self.add_file(PurePosixPath("/"))
+            root_entity = File(self , self.add_file(PurePosixPath("/")))
+            self.add_directory(root_entity)
         User(self, FSDatabase.NOBODYUSER_ID, create_if_missing=True, user_name="nobody")
 
     def add_file(self, path):

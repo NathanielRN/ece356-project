@@ -11,6 +11,7 @@
 7. Our grep can be recursive
 8. Our cd can cd to a symbolic link that is a directory
 9. How we tested quickly (Upload Script allow us to specify the root for a smaller DB)
+10. Handle empty database rdbsh by automatically creating the root
 
 
 rename -f 's/(\w+).py/..\/setup\/rootfs\/test\/bin\/$1/g' *

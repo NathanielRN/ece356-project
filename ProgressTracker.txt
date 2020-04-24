@@ -13,48 +13,48 @@
 
 # Requirements
 
-- [ ] Create ER Model for the un*x file-system
-    - [ ] Follow the notation from the lectures
-    - [ ] Includes
-        - [ ] entities
-        - [ ] attributes
-        - [ ] relationships
-        - [ ] cardinality constraints
-        - [ ] participation constraints
-    - [ ] Indicate primary keys of entities by underlining them
-    - [ ] Files properties
-        - [ ] name
-        - [ ] permission bits
-        - [ ] size
+- [x] Create ER Model for the un*x file-system
+    - [x] Follow the notation from the lectures
+    - [x] Includes
+        - [x] entities
+        - [x] attributes
+        - [x] relationships
+        - [x] cardinality constraints
+        - [x] participation constraints
+    - [x] Indicate primary keys of entities by underlining them
+    - [x] Files properties
+        - [x] name
+        - [x] permission bits
+        - [x] size
         - [ ] type
-    - [ ] File contents
-    - [ ] Directories maintained in the standard un*x manner
-        - [ ] with sub-directories as created
-        - [ ] and, types per the standard un*x permissions
-    - [ ] Hard Links
-    - [ ] Symbolic Links
-- [ ] Create Relational Database <- From ER Model
-    - [ ] Appropriately normalized
-    - [ ] Use BLOB or TEXT types for file contents
-    - [ ] SQL to create necessary
-        - [ ] Tables
-        - [ ] Keys
-- [ ] Populate database with sample data
-    - [ ] Starting Point? -> Write small utility to copy file system form un*x
+    - [x] File contents
+    - [x] Directories maintained in the standard un*x manner
+        - [x] with sub-directories as created
+        - [x] and, types per the standard un*x permissions
+    - [x] Hard Links
+    - [x] Symbolic Links
+- [x] Create Relational Database <- From ER Model
+    - [x] Appropriately normalized
+    - [x] Use BLOB or TEXT types for file contents
+    - [x] SQL to create necessary = `fs_schema.sql`
+        - [x] Tables
+        - [x] Keys
+- [x] Populate database with sample data = `fill_fs_rdb.py`
+    - [x] Starting Point? -> Write small utility to copy file system form un*x
             box into your system
-- [ ] Create the following utilities
-    - [ ] rdbsh shell program
+- [x] Create the following utilities
+    - [x] rdbsh shell program
         - [ ] Keeps track of current working directory
         - [ ] (cd) Change the current working directory
         - [ ] Maintain a PATH variable
         - [ ] Execute any executable program that is in your PATH
-    - [ ] ls (May choose to implement as a shell command in your shell)
-        - [ ] Accept -l argument 
-            "-l      (The lowercase letter ``ell''.)  List in long format.  
+    - [x] ls (May choose to implement as a shell command in your shell)
+        - [x] Accept -l argument 
+            "-l (The lowercase letter ``ell''.) List in long format.  
             (See below.)  
             A total sum for all the file sizes is output on a line 
             before the long listing."
-        - [ ] Accept plain usage
+        - [x] Accept plain usage
             "For each operand that names a file of a type other than directory, 
             ls displays its name as well as any requested,
             associated information.  For each operand that names a file of 
@@ -65,13 +65,13 @@
             displayed.  If more than one operand is given, non-directory
             operands are displayed first; directory and non-directory operands 
             are sorted separately and in lexicographical order."
-    - [ ] find (May choose to implement as a shell command in your shell)
-        - [ ] Accept the directory and (partial) name of the file being found
-        - [ ] Output the "ls -l" results for all your matches
-    - [ ] grep
-        - [ ] Accept the (partial) name of the file
-        - [ ] Seek the relevant pattern in the matching file(s)
-        - [ ] Output the line number and line for the matching lines
+    - [x] find (May choose to implement as a shell command in your shell)
+        - [x] Accept the directory and (partial) name of the file being found
+        - [x] Output the "ls -l" results for all your matches
+    - [x] grep
+        - [x] Accept the (partial) name of the file
+        - [x] Seek the relevant pattern in the matching file(s)
+        - [x] Output the line number and line for the matching lines
 
 # Submission
 

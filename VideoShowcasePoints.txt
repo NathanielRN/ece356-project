@@ -1,0 +1,16 @@
+# Required ShowcasePoints - (Nathan: This will be pretty much everything in ProgressTacker.txt)
+1. Show how we start the filesystem using `rdbash`
+
+# Bonus ShowcasePoints
+1. We can do history (Reverse Lookup + Tab Completion)
+2. Our permission bits are legit bits not just an integer
+3. ls can do `ls *` to seperate the first child directories
+4. Our utilities are in memory as files
+5. We can do globs
+6. We can cd using relative paths `../`
+7. Our grep can be recursive
+8. Our cd can cd to a symbolic link that is a directory
+9. How we tested quickly (Upload Script allow us to specify the root for a smaller DB)
+
+
+rename -f 's/(\w+).py/..\/setup\/rootfs\/test\/bin\/$1/g' *

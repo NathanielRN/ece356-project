@@ -1,0 +1,11 @@
+1. Implement cat
+2. Implement rm
+3. Implement touch
+4. Get history working
+5. Make `ls` columns align?
+6. Make all utility errors do this:
+    - print error message
+    - from sys import exit at the top
+    - then wrapping each main call with exit
+7. Implement mv
+8. Implement mkdir

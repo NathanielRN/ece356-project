@@ -3,6 +3,9 @@ This is our ECE 356 Project Submission made by Eliseo Ruiz Nowell (20667926)
 and Gerald Aryeetey (20685073)
 
 # Project Description
+This project uses MySQL to implement a UN*X File System using a Relational
+Database. An ER Model of the Database is included in the root folder, and the
+tables used are all in BCNF and therefore _normalized_.
 
 # System Requirements
 Python 3.X+

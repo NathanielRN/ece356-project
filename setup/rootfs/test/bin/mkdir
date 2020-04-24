@@ -1,0 +1,44 @@
+#!rdbsh
+"""change file timestamps
+
+"""
+from sys import exit
+from argparse import ArgumentParser
+
+from client_backend.fs_db_io import FSDatabase
+from client_backend.fs_db_file import File, Directory
+from client_backend.fs_db_file import IncorrectFileTypeError, MissingFileError
+
+def parse_args():
+    global ARGV, SHELL
+    parser = ArgumentParser(description='change file timestamps')
+    parser.add_argument('directory', 
+                        help='directory(s) to create if they do not already exist',
+                        nargs='+')
+
+    return parser.parse_args(ARGV)
+
+def main(args):
+    global FS
+    for path in args.directory:
+        try:
+            Directory(FS, path, create_if_missing=True)
+        except IncorrectFileTypeError:
+            print(f"mkdir: cannot create directory '{path}': File exists")
+            return 1
+        except MissingFileError:
+            print(f"mkdir: cannot create directory '{path}': No such file or directory")
+            return 1
+
+if __name__ == "__main__":
+    import sys
+    from client_backend import shell_context
+    FS = FSDatabase('.fs_db_rdbsh')
+    ARGV = sys.argv[1:]
+    SHELL = shell_context
+    exit(main(parse_args()))
+
+
+if __name__ == "__rdbsh__":
+    exit(main(parse_args()))
+

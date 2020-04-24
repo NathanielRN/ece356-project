@@ -18,14 +18,17 @@ def parse_args():
 
 def main(args):
     global FS, SHELL
+    path = args.path_to_change_to
+    if args.path_to_change_to == "-":
+        path = SHELL.OLDPWD
     try:
-        new_dir = File.resolve_to(FS, args.path_to_change_to, Directory)
-        SHELL.PWD = new_dir.full_name
+        new_dir = File.resolve_to(FS, path, Directory)
+        SHELL.OLDPWD, SHELL.PWD = SHELL.PWD, new_dir.full_name
     except MissingFileError:
-        print(f"cd: '{args.path_to_change_to}': No such file or directory.")
+        print(f"cd: '{path}': No such file or directory.")
         return 1
     except IncorrectFileTypeError:
-        print(f"cd: '{args.path_to_change_to}': Not a directory.")
+        print(f"cd: '{path}': Not a directory.")
         return 1
 
 

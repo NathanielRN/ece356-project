@@ -4,10 +4,12 @@
 -s: make symbolic links instead of hard links
 """
 from sys import exit
+from pathlib import PurePosixPath
 from argparse import ArgumentParser
 
 from client_backend.fs_db_io import FSDatabase
 from client_backend.fs_db_file import File, SymbolicLink, RegularFile
+from client_backend.fs_db_file import MissingFileError, IncorrectFileTypeError
 
 def parse_args():
     global ARGV, SHELL
@@ -18,24 +20,44 @@ def parse_args():
 
     return parser.parse_args(ARGV)
 
+# See FSDatabase._resolve_relative_path
+def to_abs_path(path):
+    global SHELL
+    ctx_path = PurePosixPath("/")
+    path = PurePosixPath(path)
+    if path.parts and path.parts[0] == "~":
+        ctx_path = PurePosixPath(SHELL.HOME)
+    else:
+        ctx_path = PurePosixPath(SHELL.PWD)
+
+    assert ctx_path.anchor
+    # if path starts with /, will ignore ctx_path automatically
+    return ctx_path.joinpath(path)
+
 def main(args):
     global FS
-    #TODO: Verify that link_path does not exist
-
+    try:
+        File(FS, args.link_name)
+        print(f"ln: failed to create symbolic link '{args.link_name}': File exists")
+        return 1
+    except MissingFileError:
+        pass
+    # NOTE: IncorrectFileTypeEror is impossible.
 
     if args.soft_link:
-        #TODO: Convert to absolute path
-        target = args.target
-        #NOTE: Errors with link_name shouldn't occur since already verified that it doesn't exist
+        target = to_abs_path(args.target)
+        # NOTE: Errors with link_name shouldn't occur since already verified that it doesn't exist
         SymbolicLink(FS, args.link_name, create_if_missing=True, linked_path=target)
         return
 
     try:
         target_file = File.resolve_to(FS, args.target, RegularFile)
         target_file.hardlink(args.link_name)
-    except IncorrectType:
-        # TODO: Catch hardlink errors
-        print("is directory")
+    except MissingFileError:
+        print(f"ln: failed to access '{args.target}': No such file or directory")
+        return 1
+    except IncorrectFileTypeError:
+        print(f"ln: {args.target}: hard link not allowed for directory")
         return 1
 
 if __name__ == "__main__":

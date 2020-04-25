@@ -232,8 +232,9 @@ class Directory(File):
     def size(self):
         return 0
 
-    def walk(self):
-        yield from self.fs_db.get_children(self)
+    def walk(self, include_hidden=False):
+        for child_file in self.fs_db.get_children(self, include_hidden):
+            yield child_file
         self.open()
 
     def get_file(self, filename):
@@ -241,17 +242,17 @@ class Directory(File):
         self.open()
         return File(self.fs_db, child_file) if child_file else None
 
-    def get_children_like(self, pattern, search_subdirs=False):
-        yield from self.fs_db.get_children_like(self, pattern, search_subdirs)
+    def get_children_like(self, pattern, search_subdirs=False, include_hidden=False):
+        yield from self.fs_db.get_children_like(self, pattern, search_subdirs, include_hidden)
         self.open()
 
     def empty(self):
-        for _ in self.walk():
+        for _ in self.walk(include_hidden=True):
             return False
         return True
 
     def remove(self, recursive=False):
-        for child in self.walk():
+        for child in self.walk(include_hidden=True):
             if not recursive:
                 raise ValueError("Cannot remove non-empty directory")
             if isinstance(child, Directory):

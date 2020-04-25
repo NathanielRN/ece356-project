@@ -15,7 +15,8 @@ from client_backend.fs_db_io import FSDatabase
 def parse_args():
     global ARGV, SHELL
     parser = ArgumentParser(description='List files in a directory.')
-    parser.add_argument('-l', '--long-format', action='store_true')
+    parser.add_argument('-l', '--long-format', action='store_true', help="use a long listing format")
+    parser.add_argument('-a', '--all', action='store_true', help="do not ignore entries start with .")
     parser.add_argument('path', 
     help='the path(s) of directories whose files should be listed',
     nargs='*')
@@ -33,7 +34,7 @@ def resolve_to_dir(path):
 
 def list_contents(directory, args, include_header=True):
     global FS, SHELL
-    files = list(directory.walk()) if isinstance(directory, Directory) else [directory]
+    files = list(directory.walk(include_hidden=args.all)) if isinstance(directory, Directory) else [directory]
     if args.long_format:
         file_desc_list = []
         total_size = 0
@@ -43,9 +44,7 @@ def list_contents(directory, args, include_header=True):
             filetype_desc = '-'
             link_desc = ''
             filetype = curr_file.type
-            if filetype is Directory:
-                filetype_desc = 'd'
-            elif filetype is SymbolicLink:
+            if filetype is SymbolicLink:
                 filetype_desc = 'l'
                 link_desc = f' -> {curr_file.linked_path}'
             file_desc = (

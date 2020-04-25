@@ -214,7 +214,8 @@ class FSDirectoryQuery(Enum):
         "SELECT fileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
         "INNER JOIN Directories USING (fileID) "
-        "WHERE parentDirectoryFileID = %(fid)s"
+        "WHERE parentDirectoryFileID = %(fid)s AND "
+        "{include_hidden}"
     )
 
     DB_QUERY_GET_PROP = "SELECT {prop} FROM Directories WHERE fileID = %(fid)s"
@@ -223,12 +224,16 @@ class FSDirectoryQuery(Enum):
     DB_QUERY_GET_CHILDREN = (
         "SELECT fileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
-        "WHERE parentDirectoryFileID = %(fid)s"
+        "WHERE parentDirectoryFileID = %(fid)s AND 
+        "fileName LIKE %(pattern)s "
+        "{include_hidden}"
     )
     DB_QUERY_GET_CHILDREN_LIKE = (
         "SELECT fileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
-        "WHERE parentDirectoryFileID = %(fid)s AND fileName LIKE %(pattern)s"
+        "WHERE parentDirectoryFileID = %(fid)s AND 
+        "fileName LIKE %(pattern)s "
+        "{include_hidden}"
     )
 
 class FSSymbolicLinkQuery(Enum):
@@ -749,30 +754,32 @@ class FSDatabase:
     """
     Operations on file
     """
-    def get_children(self, directory_entity):
+    def get_children(self, directory_entity, include_hidden=False):
         params = {"fid": directory_entity.fid}
+        format_params = {"include_hidden": "TRUE" if  include_hidden else "fileName NOT LIKE '.%'"}
         files = []
         with self:
-            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN, params)
+            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN, params, format_params)
             files = [fid for (fid,) in self.cursor]
         for fid in files:
             yield File(self, fid)
 
-    def get_children_like(self, directory_entity, pattern, search_subdirs=False):
+    def get_children_like(self, directory_entity, pattern, search_subdirs=False, include_hidden=False):
         params = {"fid": directory_entity.fid, "pattern": pattern}
+        format_params = {"include_hidden": "TRUE" if  include_hidden else "fileName NOT LIKE '.%'"}
         files = []
         with self:
-            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN_LIKE, params)
+            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN_LIKE, params, format_params)
             files = [fid for (fid,) in self.cursor]
         for fid in files:
             yield File(self, fid)
         if search_subdirs:
             subdirs = []
             with self:
-                self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_SUBDIRECTORIES, params)
+                self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_SUBDIRECTORIES, params, format_params)
                 subdirs = [fid for (fid,) in self.cursor]
             for subdir in subdirs:
-                yield from self.get_children_like(Directory(self, subdir), pattern)
+                yield from self.get_children_like(Directory(self, subdir), pattern, search_subdirs, include_hidden)
 
     def write_content(self, file_entity, new_content):
         params = {"fid": file_entity.fid}

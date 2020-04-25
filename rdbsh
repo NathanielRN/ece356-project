@@ -395,7 +395,8 @@ class RdbShell:
     def get_all_commands_like(self, text):
         matches = []
         for directory in self._split_path(shell_context.PATH):
-            matches.extend(f.name for f in directory.get_children_like(text + "%"))
+            include_hidden = text.startswith(".")
+            matches.extend(f.name for f in directory.get_children_like(text + "%", include_hidden=include_hidden))
         return matches
 
     def get_all_paths_like(self, path):
@@ -413,7 +414,8 @@ class RdbShell:
         # print(f"({path_dir}, {name})")
         with suppress(MissingFileError, IncorrectFileTypeError):
             directory = File.resolve_to(self.fs, dir_path, Directory)
-            matches.extend(prefix + str(dir_path.joinpath(f.name)) for f in directory.get_children_like(name + "%"))
+            include_hidden = name.startswith(".")
+            matches.extend(prefix + str(dir_path.joinpath(f.name)) for f in directory.get_children_like(name + "%", include_hidden=include_hidden))
         return matches
 
     def get_all_variables_like(self, text):

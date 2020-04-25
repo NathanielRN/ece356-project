@@ -12,6 +12,22 @@
 8. Our cd can cd to a symbolic link that is a directory
 9. How we tested quickly (Upload Script allow us to specify the root for a smaller DB)
 10. Handle empty database rdbsh by automatically creating the root
-
+11. We add rmdir to handle the empty directory deleting case, and we can delete recrusively with rm -r
+12. We have the ability to add users, login in as them, and much more
+    - Here are some test cases
+    root@/# useradd nathan1
+    Begin creating user
+    Inserted this User
+    root@/# useradd nathan1
+    useradd: user nathan1 already exists
+    root@/# useradd -u 1000 nathan1
+    useradd: UID 1000 is not unique
+    root@/# useradd -u 1000 nathan2
+    useradd: UID 1000 is not unique
+    root@/# useradd -u 1001 nathan1
+    useradd: UID 1001 is not unique
+    root@/# useradd -u 0 nathan1
+    useradd: UID 0 is not unique
+    root@/# 
 
 rename -f 's/(\w+).py/..\/setup\/rootfs\/test\/bin\/$1/g' *

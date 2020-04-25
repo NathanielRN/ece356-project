@@ -43,9 +43,7 @@ def list_contents(directory, args, include_header=True):
             filetype_desc = '-'
             link_desc = ''
             filetype = curr_file.type
-            if filetype is Directory:
-                filetype_desc = 'd'
-            elif filetype is SymbolicLink:
+            if filetype is SymbolicLink:
                 filetype_desc = 'l'
                 link_desc = f' -> {curr_file.linked_path}'
             file_desc = (

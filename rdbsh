@@ -306,7 +306,7 @@ class RdbShell:
                 self.warn(f"'{write_file}': Is a directory")
                 return
             except MissingFileError:
-                write_file = RegularFile(self.fs, write_file, create_if_missing=True)
+                write_file = RegularFile(self.fs, write_file, create_if_missing=True, contents="")
 
         cmd = self._replace_vars(cmd)
         # print(cmd)

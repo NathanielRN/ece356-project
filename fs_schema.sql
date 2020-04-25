@@ -68,13 +68,13 @@ CREATE TABLE SymbolicLinks (
 );
 
 CREATE TABLE Users (
-    userID INT NOT NULL,
+    userID INT NOT NULL AUTO_INCREMENT,
     userName VARCHAR(32) NOT NULL,
     PRIMARY KEY (userID)
 );
 
 CREATE TABLE UserGroups (
-    groupID INT NOT NULL,
+    groupID INT NOT NULL AUTO_INCREMENT,
     groupName VARCHAR(32) NOT NULL,
     PRIMARY KEY (groupID)
 );
@@ -97,5 +97,11 @@ ALTER TABLE FileContents ADD FOREIGN KEY (fileContentID) REFERENCES RegularFileM
 ALTER TABLE SymbolicLinks ADD FOREIGN KEY (fileID) REFERENCES Files(fileID);
 ALTER TABLE GroupMemberships ADD FOREIGN KEY (groupID) REFERENCES UserGroups(groupID);
 ALTER TABLE GroupMemberships ADD FOREIGN KEY (userID) REFERENCES Users(userID);
+
+-- Additional Constraints
+ALTER TABLE Users AUTO_INCREMENT=1000;
+ALTER TABLE UserGroups AUTO_INCREMENT=1000;
+ALTER TABLE Users ADD UNIQUE(userName);
+ALTER TABLE UserGroups ADD UNIQUE(groupName);
 
 -- Additional Indicies

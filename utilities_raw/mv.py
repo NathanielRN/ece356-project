@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""move (rename) files
+
+"""
+from sys import exit
+from pathlib import PurePosixPath
+from argparse import ArgumentParser
+
+from client_backend.fs_db_io import FSDatabase
+from client_backend.fs_db_file import File, Directory
+from client_backend.fs_db_file import IncorrectFileTypeError, MissingFileError
+
+def parse_args():
+    global ARGV, SHELL
+    parser = ArgumentParser(description='move (rename) files')
+    parser.add_argument('source', 
+                        help='file(s) that should be renamed/moved',
+                        nargs='+')
+    parser.add_argument('destination', 
+                        help='New filename or directory to move the file to')
+
+    return parser.parse_args(ARGV)
+
+# See FSDatabase._resolve_relative_path
+def to_abs_path(path):
+    global SHELL
+    ctx_path = PurePosixPath("/")
+    path = PurePosixPath(path)
+    if path.parts and path.parts[0] == "~":
+        ctx_path = PurePosixPath(SHELL.HOME)
+    else:
+        ctx_path = PurePosixPath(SHELL.PWD)
+
+    assert ctx_path.anchor
+    # if path starts with /, will ignore ctx_path automatically
+    return ctx_path.joinpath(path)
+
+def move_to(src_path, dst_path):
+    global FS
+    try:
+        File.resolve_to(FS, dst_path, Directory)
+    except (MissingFileError, IncorrectFileTypeError):
+        print(f"mv: target '{str(dst_path)}' is not a directory")
+        return 1
+
+    return not rename_to(src_path, dst_path)
+
+def rename_to(src_path, dst_path):
+    global FS
+
+    try:
+        # Either exists or does not. If does not exist, generic error is fine
+        # If wrong type then should've been deleted
+        src_file = File(FS, src_path)
+        src_path = PurePosixPath(src_file.full_name)
+        dst_path = to_abs_path(dst_path)
+        try:
+            resolved_dir = File.resolve_to(FS, dst_path, Directory)
+            dst_path = PurePosixPath(resolved_dir.full_name).joinpath(src_path.name)
+        except IncorrectFileTypeError:
+            File(FS, dst_path).remove()
+        except MissingFileError:
+            pass
+        dst_dir = Directory(FS, dst_path.parent)
+        if src_path.parent != dst_path.parent:
+            src_file.move(dst_dir)
+        src_file.name = dst_path.name
+
+    except (MissingFileError, IncorrectFileTypeError):
+        print(f"cannot move '{str(src_path)}' to '{str(dst_path)}': No such file or directory")
+        return 1
+
+def main(args):
+    global FS
+    if len(args.source) > 1:
+        for source in args.source:
+            if not move_to(source, args.destination):
+                return 1
+    else:
+        return rename_to(args.source[0], args.destination)
+
+
+if __name__ == "__main__":
+    import sys
+    from client_backend import shell_context
+    FS = FSDatabase('.fs_db_rdbsh')
+    ARGV = sys.argv[1:]
+    SHELL = shell_context
+    exit(main(parse_args()))
+
+
+if __name__ == "__rdbsh__":
+    exit(main(parse_args()))

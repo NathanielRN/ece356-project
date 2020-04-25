@@ -11,27 +11,34 @@ import stat
 import yaml
 import struct
 from enum import Enum
-from collections.abc import Sequence
 from pathlib import PurePosixPath
 
 import mysql.connector as MySQLConnection
 from mysql.connector import errorcode as MySQLError
 from mysql.connector.errors import ProgrammingError
 from mysql.connector.cursor import MySQLCursor, MySQLCursorNamedTuple
+from mysql.connector.constants import SQLMode
 
 class FSUserQuery(Enum):
     DB_QUERY_ADD_USER = (
         "INSERT INTO Users "
         "(userID, userName) "
-        "VALUES (%(uid)s, %(user_name)s)"
+        "VALUES ({use_uid}, %(user_name)s)"
     )
     DB_QUERY_ADD_GROUP = (
         "INSERT INTO UserGroups "
         "(groupID, groupName) "
         "VALUES (%(gid)s, %(group_name)s)"
     )
-    DB_QUERY_DEL_USER = "DELETE FROM Users WHERE userID = %(uid)s"
-    DB_QUERY_DEL_GROUP = "DELETE FROM Users WHERE userID = %(uid)s"
+
+    DB_QUERY_DEL_USER = (
+        "DELETE FROM GroupMemberships WHERE userID = %(uid)s",
+        "DELETE FROM Users WHERE userID = %(uid)s"
+    )
+    DB_QUERY_DEL_GROUP = (
+        "DELETE FROM GroupMemberships WHERE groupID = %(gid)s",
+        "DELETE FROM UserGroups WHERE groupID = %(gid)s"
+    )
     DB_QUERY_ADD_GROUP_MEMBERSHIP = (
         "INSERT INTO GroupMemberships "
         "(groupID, userID) "
@@ -41,18 +48,19 @@ class FSUserQuery(Enum):
         "DELETE FROM GroupMemberships "
         "WHERE userID = %(uid)s AND groupID = %(gid)s"
     )
-    # TODO: Expose these two queries
-    DB_QUERY_GET_GROUP_MEMBERSHIP = (
-        "SELECT groupID FROM GroupMemberships INNER JOIN UserGroups USING (groupID)"
-        "WHERE userID = %(uid)s"
-    )
     DB_QUERY_CHECK_GROUP_MEMBERSHIP = (
         "SELECT * FROM GroupMemberships "
         "WHERE userID = %(uid)s AND groupID = %(gid)s"
     )
+    DB_QUERY_GET_ALL_GROUPS = (
+        "SELECT groupID FROM GroupMemberships "
+        "WHERE userID = %(uid)s"
+    )
 
+    DB_QUERY_GET_USER_ID_BY_PROP = "SELECT userID FROM Users WHERE {prop} = %(prop_value)s"
     DB_QUERY_GET_USER_PROP = "SELECT {prop} FROM Users WHERE userID = %(uid)s"
     DB_QUERY_SET_USER_PROP = "UPDATE Users SET {prop}=%(value)s WHERE userID = %(uid)s"
+    DB_QUERY_GET_GROUP_ID_BY_PROP = "SELECT groupID FROM UserGroups WHERE {prop} = %(prop_value)s"
     DB_QUERY_GET_GROUP_PROP = "SELECT {prop} FROM UserGroups WHERE groupID = %(gid)s"
     DB_QUERY_SET_GROUP_PROP = "UPDATE UserGroups SET {prop}=%(value)s WHERE groupID = %(gid)s"
 
@@ -101,7 +109,10 @@ class FSGenericFileQuery(Enum):
         "(fileID, fileName, groupOwnerID, authorID, ownerID) "
         "VALUES ({use_fid}, %(name)s, %(group)s, %(author)s, %(author)s)"
     )
-    DB_QUERY_DEL_FILE = "DELETE FROM Files WHERE fileID = %(fid)s"
+    DB_QUERY_DEL_FILE = (
+        "DELETE FROM ParentDirectory WHERE fileID = %(fid)s",
+        "DELETE FROM Files WHERE fileID = %(fid)s",
+    )
 
     DB_QUERY_GET_PARENT_DIR = (
         "SELECT parentDirectoryFileID "
@@ -126,8 +137,8 @@ class FSRegularFileQuery(Enum):
     )
     DB_QUERY_DEL_REG_FILE = (
         DB_QUERY_DELETE_ALL_FILE_CONTENT,
+        "DELETE FROM HardLinks WHERE fileID = %(fid)s",
         "DELETE FROM RegularFileMetadata WHERE fileContentID = (SELECT fileContentID FROM HardLinks WHERE fileID=%(fid)s)",
-        "DELETE FROM HardLinks WHERE fileID = %(fid)s"
     )
     DB_QUERY_ADD_HARDLINK = (
         "INSERT INTO HardLinks "
@@ -149,11 +160,17 @@ class FSRegularFileQuery(Enum):
         "SELECT fileContentID, %(line_no)s AS lineNumber, %(line_content)s AS lineContent "
         "FROM HardLinks WHERE fileID=%(fid)s"
     )
-    DB_QUERY_GET_FILE_LENGTH = (
-        "SELECT MAX(lineNumber) "
+    DB_QUERY_GET_LAST_LINE = (
+        "SELECT lineNumber, lineContent "
         "FROM FileContents INNER JOIN RegularFileMetadata USING (fileContentID) "
         "INNER JOIN HardLinks USING (fileContentID) "
-        "WHERE fileID = %(fid)s"
+        "WHERE fileID = %(fid)s AND "
+        "NOT EXISTS ("
+        "SELECT * "
+        "FROM (FileContents AS B) INNER JOIN (RegularFileMetadata AS C) USING (fileContentID) "
+        "INNER JOIN (HardLinks AS D) USING (fileContentID) "
+        "WHERE B.lineNumber > FileContents.lineNumber "
+        ")"
     )
     DB_QUERY_CHECK_FOR_BANG = (
         "SELECT fileID "
@@ -232,6 +249,7 @@ class FSDatabase:
         with open(db_config_path) as db_config_file:
             db_configs = yaml.load(db_config_file)
         self.connection = MySQLConnection.connect(**db_configs)
+        self.connection.sql_mode = [*self.connection.sql_mode.split(","), SQLMode.NO_AUTO_VALUE_ON_ZERO]
         self.cursor = None
         self.use_raw = False
     
@@ -246,63 +264,90 @@ class FSDatabase:
         self.cursor = None
         self.use_raw = False
 
-    def _execute_queries(self, queries, params, format_params=None):
+    def _execute_queries(self, queries_enum, params, format_params=None):
         format_params = format_params or {}
-        if not isinstance(queries, Sequence):
-            queries = (queries,)
+        if not isinstance(queries_enum.value, tuple):
+            queries = (queries_enum.value,)
+        else:
+            queries = queries_enum.value
         for query in queries:
             try:
-                formatted_query = query.value.format(**format_params)
+                formatted_query = query.format(**format_params)
                 self.cursor.execute(formatted_query, params)
             except Exception:
-                print(">>>", query.value, params, format_params)
+                print(">>>", query, params, format_params)
                 raise
     """
     User/Group Creation
     """
     def add_user(self, uid, user_name):
         user_params = {"uid": uid, "user_name": user_name}
-        group_params = {"gid": uid, "group_name": user_name}
-        membership_params = {"uid": uid, "gid": uid}
+        format_params = {"use_uid": "%(uid)s" if uid is not None else "NULL"}
         with self:
             # Add to group
-            self._execute_queries(FSUserQuery.DB_QUERY_ADD_USER, user_params)
+            self._execute_queries(FSUserQuery.DB_QUERY_ADD_USER, user_params, format_params=format_params)
             self.connection.commit()
-            # Transaction should fail if group already exists
-            self._execute_queries(FSUserQuery.DB_QUERY_ADD_GROUP, group_params)
-            self._execute_queries(FSUserQuery.DB_QUERY_ADD_GROUP_MEMBERSHIP, membership_params)
-            self.connection.commit()
+            uid = self.cursor.lastrowid
         return uid
 
     def add_group(self, gid, group_name):
         group_params = {"gid": gid, "group_name": group_name}
+        format_params = {"use_gid": "%(gid)s" if gid is not None else "NULL"}
         with self:
-            self._execute_queries(FSUserQuery.DB_QUERY_ADD_GROUP, group_params)
+            self._execute_queries(FSUserQuery.DB_QUERY_ADD_GROUP, group_params, format_params)
             self.connection.commit()
+            gid = self.cursor.lastrowid
         return gid
 
-    def add_membership(self, uid, gid):
-        membership_params = {"uid": uid, "gid": gid}
+    def add_membership(self, user_entity, group_entity):
+        membership_params = {"uid": user_entity.uid, "gid": group_entity.gid}
         with self:
             # Add to group
             self._execute_queries(FSUserQuery.DB_QUERY_ADD_GROUP_MEMBERSHIP, membership_params)
             self.connection.commit()
 
-    def get_user(self, uid):
+    def revoke_membership(self, user_entity, group_entity):
+        membership_params = {"uid": user_entity.uid, "gid": group_entity.gid}
         with self:
-            self._execute_queries(FSUserQuery.DB_QUERY_GET_USER_PROP, {
-                "uid": uid,
-            }, format_params={"prop": "userID"})
+            # Remove from group
+            self._execute_queries(FSUserQuery.DB_QUERY_REVOKE_GROUP_MEMBERSHIP, membership_params)
+            self.connection.commit()
+
+    def get_user(self, uid_or_user_name):
+        with self:
+            self._execute_queries(FSUserQuery.DB_QUERY_GET_USER_ID_BY_PROP, {
+                "prop_value": uid_or_user_name,
+            }, format_params={"prop": "userID" if isinstance(uid_or_user_name, int) else "userName"})
+
             uid = self.cursor.fetchone()
             return uid[0] if uid else None
 
-    def get_group(self, gid):
+    def get_group(self, gid_or_group_name):
         with self:
-            self._execute_queries(FSUserQuery.DB_QUERY_GET_GROUP_PROP, {
-                "gid": gid,
-            }, format_params={"prop": "groupID"})
+            self._execute_queries(FSUserQuery.DB_QUERY_GET_GROUP_ID_BY_PROP, {
+                "prop_value": gid_or_group_name,
+            }, format_params={"prop": "groupID"  if isinstance(gid_or_group_name, int) else "groupName"})
             gid = self.cursor.fetchone()
             return gid[0] if gid else None
+
+
+    """
+    User Helper
+    """
+    def get_groups(self, user_entity):
+        with self:
+            self._execute_queries(FSUserQuery.DB_QUERY_GET_ALL_GROUPS, {"uid": user_entity.uid})
+            groups = [gid for (gid,) in self.cursor]
+        for gid in groups:
+            yield Group(self, gid=gid)
+
+    def check_group_membership(self, user_entity, group_entity):
+        with self:
+            self._execute_queries(FSUserQuery.DB_QUERY_CHECK_GROUP_MEMBERSHIP, {
+                "uid": user_entity.uid,
+                "gid": user_entity.gid
+            })
+            return bool(self.cursor.fetchone())
 
 
     """
@@ -381,18 +426,21 @@ class FSDatabase:
     Creation/Deletion
     """
     def _verify_root(self):
-        User(self, FSDatabase.ROOTUSER_ID, create_if_missing=True, user_name="root")
+        User(self, uid=FSDatabase.ROOTUSER_ID, user_name="root", create_if_missing=True)
         if self.get_type(FSDatabase.ROOTDIR_ID) is None:
             root_entity = File(self , self.add_file(PurePosixPath("/")))
             self.add_directory(root_entity)
-        User(self, FSDatabase.NOBODYUSER_ID, create_if_missing=True, user_name="nobody")
+        User(self, uid=FSDatabase.NOBODYUSER_ID, user_name="nobody", create_if_missing=True)
 
     def add_file(self, path):
         author, group = None, None
         try:
-            author, group = User(self, shell_context.USER), Group(self, shell_context.USER)
-        except (MissingUserError, MissingGroupError): 
-            author, group = User(self, FSDatabase.ROOTUSER_ID), Group(self, FSDatabase.ROOTUSER_ID)
+            author = User(self, uid=shell_context.USER)
+            group = next(author.get_groups())
+        except (MissingUserError): 
+            author = User(self, uid=FSDatabase.ROOTUSER_ID)
+            group = next(author.get_groups())
+
         path = self._resolve_relative_path(path)
         params = {"name": path.name, "author": author.uid, "group": group.gid}
         format_params = {}
@@ -401,7 +449,7 @@ class FSDatabase:
             if parent_id is None or self.get_type(parent_id) is not Directory:
                 raise ValueError("Invalid path for file")
             params["parent_fid"] = parent_id
-            format_params["use_fid"] = "DEFAULT"
+            format_params["use_fid"] = "NULL"
         else:
             format_params["use_fid"] = "%(fid)s"
             params["fid"] = FSDatabase.ROOTDIR_ID
@@ -451,24 +499,25 @@ class FSDatabase:
             self.connection.commit()
 
     def remove(self, entity):
+        file_query_map = {
+            Directory: FSDirectoryQuery.DB_QUERY_DEL_DIRECTORY,
+            RegularFile: FSRegularFileQuery.DB_QUERY_DEL_REG_FILE,
+            SymbolicLink: FSSymbolicLinkQuery.DB_QUERY_DEL_SYMBOLIC_LINK,
+        }
         with self:
             if isinstance(entity, User):
                 self._execute_queries(FSUserQuery.DB_QUERY_DEL_USER, {"uid": entity.uid})
             elif isinstance(entity, Group):
                 self._execute_queries(FSUserQuery.DB_QUERY_DEL_GROUP, {"gid": entity.gid})
             elif isinstance(entity, File):
-                query_map = {
-                    Directory: FSDirectoryQuery.DB_QUERY_DEL_DIRECTORY,
-                    RegularFile: FSRegularFileQuery.DB_QUERY_DEL_REG_FILE,
-                    SymbolicLink: FSSymbolicLinkQuery.DB_QUERY_DEL_SYMBOLIC_LINK,
-                }
-                self._execute_queries(query_map[entity.type], {"fid": entity.fid})
+                self._execute_queries(file_query_map[type(entity)], {"fid": entity.fid})
                 self._execute_queries(FSGenericFileQuery.DB_QUERY_DEL_FILE, {"fid": entity.fid})
+            self.connection.commit()
 
     def remove_hardlink(self, file_entity):
         with self:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_DEL_HARDLINK, {"fid": file_entity.fid})
-
+            self.connection.commit()
 
     """
     Getters and Setters
@@ -519,7 +568,7 @@ class FSDatabase:
                 self._execute_queries(FSGenericFileQuery.DB_QUERY_SET_PROP, {
                     "fid": entity.fid,
                     "value": new_name
-                }, format_params={"prop": "name"})
+                }, format_params={"prop": "fileName"})
             self.connection.commit()
 
     def get_owner(self, file_entity):
@@ -530,7 +579,7 @@ class FSDatabase:
             }, format_params={"prop": "ownerID"})
             owner_id = self.cursor.fetchone()
             uid = owner_id[0] if owner_id else None
-        return User(self, uid) if uid is not None else None
+        return User(self, uid=uid) if uid is not None else None
 
     def set_owner(self, file_entity, new_owner):
         with self:
@@ -548,7 +597,7 @@ class FSDatabase:
             }, format_params={"prop": "groupOwnerID"})
             owner_id = self.cursor.fetchone()
             gid = owner_id[0] if owner_id else None
-        return Group(self, gid) if gid is not None else None
+        return Group(self, gid=gid) if gid is not None else None
 
     def set_group_owner(self, file_entity, new_owner):
         with self:
@@ -589,7 +638,7 @@ class FSDatabase:
                 "fid": file_entity.fid,
             }, format_params={"prop": "authorID"})
             author = self.cursor.fetchone()
-            return User(self, author[0]) if author else None
+            return User(self, uid=author[0]) if author else None
 
     def get_modified_date(self, file_entity):
         query_map = {
@@ -598,7 +647,7 @@ class FSDatabase:
             RegularFile: FSRegularFileQuery,
             SymbolicLink: FSSymbolicLinkQuery,
         }
-        query_type = query_map[file_entity.type]
+        query_type = query_map[type(file_entity)]
         with self:
             self._execute_queries(query_type.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
@@ -613,7 +662,7 @@ class FSDatabase:
             RegularFile: FSRegularFileQuery,
             SymbolicLink: FSSymbolicLinkQuery,
         }
-        query_type = query_map[file_entity.type]
+        query_type = query_map[type(file_entity)]
         with self:
             self._execute_queries(query_type.DB_QUERY_SET_PROP, {
                 "fid": file_entity.fid,
@@ -628,7 +677,7 @@ class FSDatabase:
             RegularFile: FSRegularFileQuery,
             SymbolicLink: FSSymbolicLinkQuery,
         }
-        query_type = query_map[file_entity.type]
+        query_type = query_map[type(file_entity)]
         with self:
             self._execute_queries(query_type.DB_QUERY_GET_PROP, {
                 "fid": file_entity.fid,
@@ -643,7 +692,7 @@ class FSDatabase:
             RegularFile: FSRegularFileQuery,
             SymbolicLink: FSSymbolicLinkQuery,
         }
-        query_type = query_map[file_entity.type]
+        query_type = query_map[type(file_entity)]
         with self:
             self._execute_queries(query_type.DB_QUERY_SET_PROP, {
                 "fid": file_entity.fid,
@@ -661,7 +710,7 @@ class FSDatabase:
 
     def set_parent_dir(self, file_entity, parent_dir):
         with self:
-            self._execute_queries(FSGenericFileQuery.DB_QUERY_MOVE_CHILD_FILE, {
+            self._execute_queries(FSDirectoryQuery.DB_QUERY_MOVE_CHILD_FILE, {
                 "fid": file_entity.fid,
                 "parent_fid": parent_dir.fid
             })
@@ -743,20 +792,21 @@ class FSDatabase:
     def append_content(self, file_entity, new_content):
         params = {"fid": file_entity.fid}
         with self:
-            self._execute_queries(FSRegularFileQuery.DB_QUERY_GET_FILE_LENGTH, params)
-            start_length = 1
-            length = self.cursor.fetchone()
-            start_length = length[0] if length else None
+            self._execute_queries(FSRegularFileQuery.DB_QUERY_GET_LAST_LINE, params)
+            start_length, start_contents = 1, ""
+            last_line = self.cursor.fetchone()
+            start_length, start_contents = last_line if last_line else (start_length, start_contents)
             contents = new_content
             if isinstance(contents, str):
+                contents = start_contents + contents
                 contents = contents.splitlines()
             if not contents:
-                new_contents.append("")
+                contents.append("")
             self._execute_queries(FSRegularFileQuery.DB_QUERY_INCREMENT_PROP, {
                 "fid": file_entity.fid,
                 "value": sum(map(len, contents)),
             }, format_params={"prop": "size"})
-            for line_no, content in enumerate(contents, line_no + 1):
+            for line_no, content in enumerate(contents, line_no):
                 content_params = {"line_no": line_no, "line_content": content}
                 content_params.update(params)
                 self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_FILE_CONTENT, content_params)

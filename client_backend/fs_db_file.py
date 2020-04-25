@@ -10,7 +10,7 @@ from stat import S_IRWXU, S_IRWXG, S_IRWXO
 
 from os import PathLike, strerror
 from datetime import datetime
-
+from pathlib import PurePosixPath
 
 class MissingFileError(IOError):
     def __init__(self, path):
@@ -23,7 +23,10 @@ class IncorrectFileTypeError(ValueError):
 class TooManyLinkError(IOError):
     def __init__(self, path):
         super().__init__(errno.EMLINK, strerror(errno.EMLINK), path)
-    pass
+
+class ExistingFileError(IOError):
+    def __init__(self, path):
+        super().__init__(errno.EEXIST, strerror(errno.EEXIST), path)
 
 
 class File:
@@ -37,7 +40,7 @@ class File:
         if not fs_db:
             raise ValueError("Did not provide filesystem DB connection")
         if create_if_missing and cls is File:
-            raise ValueError("Attempting an untyped file")
+            raise ValueError("Attempting to create a file without a type")
 
         inst = super().__new__(cls)
         inst.fs_db = fs_db
@@ -170,6 +173,10 @@ class File:
         self.fs_db.update_modified_date(self)
 
     def move(self, new_directory):
+        if type(new_directory) is not Directory:
+            raise IncorrectFileTypeError()
+        if new_directory.get_file(self.name):
+            raise ExistingFileError(PurePosixPath(new_directory.full_name).joinpath(self.name))
         self.fs_db.set_parent_dir(self, new_directory)
 
     def remove(self):
@@ -245,8 +252,9 @@ class Directory(File):
                 raise ValueError("Cannot remove non-empty directory")
             if isinstance(child, Directory):
                 child.remove(recursive=True)
-            child.remove()
-        super().remove(self)
+            else:
+                child.remove()
+        super().remove()
 
 
 class RegularFile(File):

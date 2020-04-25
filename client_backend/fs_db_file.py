@@ -31,7 +31,7 @@ class ExistingFileError(IOError):
 
 class File:
     MAX_LINK_DEPTH = 256
-    def __new__(cls, fs_db, path_or_id, *args, create_if_missing=False, **kwargs):
+    def __new__(cls, fs_db, path_or_id, *args, create_if_missing=False, bypass_typecheck=False, **kwargs):
         """
         Does error checking/reporting on instantiation of object
 
@@ -39,8 +39,9 @@ class File:
         """
         if not fs_db:
             raise ValueError("Did not provide filesystem DB connection")
-        if create_if_missing and cls is File:
-            raise ValueError("Attempting to create a file without a type")
+        if not bypass_typecheck:
+            if create_if_missing and cls is File:
+                raise ValueError("Attempting to create a file without a type")
 
         inst = super().__new__(cls)
         inst.fs_db = fs_db
@@ -64,7 +65,7 @@ class File:
                              "Use generic types if type is unknown")
         return inst if inst_type is cls else inst_type(fs_db, inst.fid)
 
-    def __init__(self, fs_db, path_or_id, create_if_missing=False):
+    def __init__(self, fs_db, path_or_id, create_if_missing=False, bypass_typecheck=False):
         if not self.fid and isinstance(path_or_id, (PathLike, str)) and create_if_missing:
             path = path_or_id
             self.fid = self.fs_db.add_file(path)
@@ -99,6 +100,9 @@ class File:
     def check_access(self, user, operation):
         perm_bits = self.permissions
         if perm_bits.value & S_IRWXO & operation:
+            return True
+        # Root user should always get access
+        if user.uid == 0:
             return True
         if perm_bits.value & S_IRWXG & operation:
             if user.has_group(self.group_owner):

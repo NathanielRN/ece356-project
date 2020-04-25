@@ -142,8 +142,9 @@ class FSRegularFileQuery(Enum):
     )
     DB_QUERY_ADD_HARDLINK = (
         "INSERT INTO HardLinks "
-        "SELECT %(link_fid)s AS fileID, "
-        "(SELECT fileContentID FROM fileID = %(orig_fid)s)"
+        "SELECT %(link_fid)s AS fileID, fileContentID "
+        "FROM HardLinks "
+        "WHERE fileID=%(orig_fid)s"
     )
 
     DB_QUERY_COUNT_HARDLINKS = (
@@ -519,6 +520,7 @@ class FSDatabase:
     def remove_hardlink(self, file_entity):
         with self:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_DEL_HARDLINK, {"fid": file_entity.fid})
+            self._execute_queries(FSGenericFileQuery.DB_QUERY_DEL_FILE, {"fid": file_entity.fid})
             self.connection.commit()
 
     """
@@ -851,7 +853,8 @@ class FSDatabase:
 
 
     def add_hardlink(self, file_entity, path):
-        hardlink_file = File(self, path, create_if_missing=True)
+        # Need to bypass "cannot create generic file error" here
+        hardlink_file = File(self, path, create_if_missing=True, bypass_typecheck=True)
         params = {"orig_fid": file_entity.fid, "link_fid": hardlink_file.fid}
         with self:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_HARDLINK, params)

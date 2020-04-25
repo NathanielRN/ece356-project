@@ -8,7 +8,7 @@ from pathlib import PurePosixPath
 from argparse import ArgumentParser
 
 from client_backend.fs_db_io import FSDatabase
-from client_backend.fs_db_file import File, SymbolicLink, RegularFile
+from client_backend.fs_db_file import File, SymbolicLink, Directory, RegularFile
 from client_backend.fs_db_file import MissingFileError, IncorrectFileTypeError
 
 def parse_args():
@@ -51,13 +51,16 @@ def main(args):
         return
 
     try:
-        target_file = File.resolve_to(FS, args.target, RegularFile)
+        target_file = RegularFile(FS, args.target)
         target_file.hardlink(args.link_name)
     except MissingFileError:
         print(f"ln: failed to access '{args.target}': No such file or directory")
         return 1
     except IncorrectFileTypeError:
-        print(f"ln: {args.target}: hard link not allowed for directory")
+        if isinstance(target_file, Directory):
+            print(f"ln: {args.target}: hard link not allowed for directory")
+        elif isinstance(target_file, SymbolicLink):
+            print(f"ln: {args.target}: hard link not allowed for symbolic link")
         return 1
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ def main(args):
         print(f"groupadd: group {args.group_name} already exists")
         return 1
 
-    new_user = Group(FS, gid=args.gid, group_name=args.group_name, create_if_missing=True)
+    new_group = Group(FS, gid=args.gid, group_name=args.group_name, create_if_missing=True)
 
 if __name__ == "__main__":
     import sys

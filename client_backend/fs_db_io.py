@@ -345,7 +345,7 @@ class FSDatabase:
         with self:
             self._execute_queries(FSUserQuery.DB_QUERY_CHECK_GROUP_MEMBERSHIP, {
                 "uid": user_entity.uid,
-                "gid": user_entity.gid
+                "gid": group_entity.gid
             })
             return bool(self.cursor.fetchone())
 

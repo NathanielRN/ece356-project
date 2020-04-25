@@ -18,8 +18,7 @@ def parse_args():
     parser.add_argument('-l', '--long-format', action='store_true')
     parser.add_argument('path', 
     help='the path(s) of directories whose files should be listed',
-    nargs='*',
-    default=SHELL.PWD)
+    nargs='*')
 
     return parser.parse_args(ARGV)
 
@@ -34,8 +33,7 @@ def resolve_to_dir(path):
 
 def list_contents(directory, args, include_header=True):
     global FS, SHELL
-    files = list(directory.walk()) if directory.type is Directory else [directory]
-
+    files = list(directory.walk()) if isinstance(directory, Directory) else [directory]
     if args.long_format:
         file_desc_list = []
         total_size = 0
@@ -43,11 +41,13 @@ def list_contents(directory, args, include_header=True):
         for curr_file in files:
             total_size += curr_file.size
             filetype_desc = '-'
+            link_desc = ''
             filetype = curr_file.type
             if filetype is Directory:
                 filetype_desc = 'd'
             elif filetype is SymbolicLink:
                 filetype_desc = 'l'
+                link_desc = f' -> {curr_file.linked_path}'
             file_desc = (
                 f"{filetype_desc}{str(curr_file.permissions)} "
                 f"{curr_file.num_of_hard_links} "
@@ -55,7 +55,7 @@ def list_contents(directory, args, include_header=True):
                 f"{curr_file.group_owner.name} "
                 f"{curr_file.size} "
                 f"{curr_file.modified_date.strftime('%b %d %H:%M')} "
-                f"{curr_file.full_name}"
+                f"{curr_file.full_name}{link_desc}"
             )
 
             file_desc_list.append(file_desc)
@@ -111,4 +111,3 @@ if __name__ == "__main__":
 
 if __name__ == "__rdbsh__":
     exit(main(parse_args()))
-

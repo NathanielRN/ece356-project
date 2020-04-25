@@ -18,8 +18,7 @@ def parse_args():
     parser.add_argument('-l', '--long-format', action='store_true')
     parser.add_argument('path', 
     help='the path(s) of directories whose files should be listed',
-    nargs='*',
-    default=SHELL.PWD)
+    nargs='*')
 
     return parser.parse_args(ARGV)
 
@@ -34,8 +33,7 @@ def resolve_to_dir(path):
 
 def list_contents(directory, args, include_header=True):
     global FS, SHELL
-    files = list(directory.walk()) if directory.type is Directory else [directory]
-
+    files = list(directory.walk()) if isinstance(directory, Directory) else [directory]
     if args.long_format:
         file_desc_list = []
         total_size = 0
@@ -113,4 +111,3 @@ if __name__ == "__main__":
 
 if __name__ == "__rdbsh__":
     exit(main(parse_args()))
-

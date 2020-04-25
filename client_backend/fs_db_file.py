@@ -246,7 +246,7 @@ class Directory(File):
             if isinstance(child, Directory):
                 child.remove(recursive=True)
             child.remove()
-        super().remove(self)
+        super().remove()
 
 
 class RegularFile(File):

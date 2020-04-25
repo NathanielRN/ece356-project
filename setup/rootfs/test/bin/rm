@@ -1,0 +1,53 @@
+#!rdbsh
+"""remove files from the file system
+
+"""
+from sys import exit
+from argparse import ArgumentParser
+
+from client_backend.fs_db_io import FSDatabase
+from client_backend.fs_db_file import File, Directory
+from client_backend.fs_db_file import IncorrectFileTypeError, MissingFileError
+
+def parse_args():
+    global ARGV, SHELL
+    parser = ArgumentParser(description='remove files from the file system')
+    parser.add_argument('file', 
+                        help='file(s) and or directories to remove if they do not already exist',
+                        nargs='+')
+    parser.add_argument('-r', '--recursive', action='store_true')
+
+    return parser.parse_args(ARGV)
+
+
+def main(args):
+    global FS
+    for path in args.file:
+        try:
+            curr_file = File(FS, path, create_if_missing=False)
+        except MissingFileError:
+            print(f"rm: cannot create directory '{path}': No such file or directory")
+            return 1
+        filetype = curr_file.type
+        if filetype is Directory:
+            if args.recursive:
+                curr_file.remove(True)
+            else:
+                print(f"rm: cannot remove '{path}': Is a directory")
+                return 1
+        else:
+            curr_file.remove()
+
+
+if __name__ == "__main__":
+    import sys
+    from client_backend import shell_context
+    FS = FSDatabase('.fs_db_rdbsh')
+    ARGV = sys.argv[1:]
+    SHELL = shell_context
+    exit(main(parse_args()))
+
+
+if __name__ == "__rdbsh__":
+    exit(main(parse_args()))
+

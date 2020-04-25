@@ -246,16 +246,18 @@ class FSDatabase:
         self.cursor = None
         self.use_raw = False
 
-    def _execute_queries(self, queries, params, format_params=None):
+    def _execute_queries(self, queries_enum, params, format_params=None):
         format_params = format_params or {}
-        if not isinstance(queries, Sequence):
-            queries = (queries,)
+        if not isinstance(queries_enum.value, tuple):
+            queries = (queries_enum.value,)
+        else:
+            queries = queries_enum.value
         for query in queries:
             try:
-                formatted_query = query.value.format(**format_params)
+                formatted_query = query.format(**format_params)
                 self.cursor.execute(formatted_query, params)
             except Exception:
-                print(">>>", query.value, params, format_params)
+                print(">>>", query, params, format_params)
                 raise
     """
     User/Group Creation
@@ -464,10 +466,12 @@ class FSDatabase:
                 }
                 self._execute_queries(query_map[entity.type], {"fid": entity.fid})
                 self._execute_queries(FSGenericFileQuery.DB_QUERY_DEL_FILE, {"fid": entity.fid})
+            self.connection.commit()
 
     def remove_hardlink(self, file_entity):
         with self:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_DEL_HARDLINK, {"fid": file_entity.fid})
+            self.connection.commit()
 
 
     """

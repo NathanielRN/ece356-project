@@ -224,15 +224,14 @@ class FSDirectoryQuery(Enum):
     DB_QUERY_GET_CHILDREN = (
         "SELECT fileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
-        "WHERE parentDirectoryFileID = %(fid)s AND 
-        "fileName LIKE %(pattern)s "
+        "WHERE parentDirectoryFileID = %(fid)s AND "
         "{include_hidden}"
     )
     DB_QUERY_GET_CHILDREN_LIKE = (
         "SELECT fileID "
         "FROM ParentDirectory INNER JOIN Files USING (fileID) "
-        "WHERE parentDirectoryFileID = %(fid)s AND 
-        "fileName LIKE %(pattern)s "
+        "WHERE parentDirectoryFileID = %(fid)s AND "
+        "fileName LIKE %(pattern)s AND "
         "{include_hidden}"
     )
 
@@ -382,7 +381,9 @@ class FSDatabase:
     def find_file_in_dir(self, parent_dir, filename):
         params = {"fid": parent_dir.fid if isinstance(parent_dir, Directory) else parent_dir, "pattern": filename}
         with self:
-            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN_LIKE, params)
+            self._execute_queries(FSDirectoryQuery.DB_QUERY_GET_CHILDREN_LIKE, params, {
+                "include_hidden": "TRUE",
+            })
             file_info = self.cursor.fetchone()
             return file_info.fileID if file_info else None
 

@@ -58,7 +58,10 @@ class RdbShell:
             raise ValueError("No config file found. Please create ~/.fs_db_rdbsh")
 
         self.fs = FSDatabase(fs_config)
-        shell_context.USER = params.user
+        if params.user.isdigit():
+            shell_context.USER = int(params.user)
+        else:
+            shell_context.USER = params.user
         self.argv = None
         # All executing files end up here, only one file should be running at a time anyways
         self.workspace = Path(workspace)
@@ -109,7 +112,7 @@ class RdbShell:
     @staticmethod
     def parse_args():
         parser = ArgumentParser(description=__doc__)
-        parser.add_argument("-u", "--user", type=int, help="User ID to login as. Will be created if doesn't exist", default=0)
+        parser.add_argument("-u", "--user", help="User ID to login as. Will be created if doesn't exist", default="0")
         parser.add_argument("--config", help="Path to config directory")
 
         return parser.parse_args()

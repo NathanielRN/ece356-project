@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Output the contents of a file to the shell console
+"""Concatenate files and print on the standard output
 """
 
 from sys import exit
@@ -7,14 +7,16 @@ from argparse import ArgumentParser
 from pathlib import PurePosixPath
 from pathlib import Path
 
-from client_backend.fs_db_file import Directory, File, RegularFile, SymbolicLink, IncorrectFileTypeError, MissingFileError
+from client_backend.fs_db_file import Directory, File, RegularFile, SymbolicLink
+from client_backend.fs_db_file import IncorrectFileTypeError, MissingFileError
 from client_backend.fs_db_io import FSDatabase
 
 def parse_args():
     global ARGV, SHELL
-    parser = ArgumentParser(description='Output the contents of a file.')
+    parser = ArgumentParser(description='Concatenate files and print on the standard output')
     parser.add_argument('target_filename', 
-    help='the path of the directory whose files should be listed')
+    help='file(s) to standard output',
+    nargs='+')
 
     return parser.parse_args(ARGV)
 
@@ -22,17 +24,21 @@ def parse_args():
 def main(args):
     global FS, SHELL
 
+    target = None
     try:
-        matched_file = File.resolve_to(FS, args.target_filename, RegularFile)
+        matched_files = []
+        for target in args.target_filename:
+            matched_files.append(File.resolve_to(FS, target, RegularFile))
+
+        for matched_file in matched_files:
+            for line in matched_file.readlines():
+                print(line, end="")
     except IncorrectFileTypeError:
-        print(f"cat: '{args.target_filename}/': Is a directory.")
+        print(f"cat: '{target}/': Is a directory.")
         return 1
     except MissingFileError:
-        print(f"cat: '{args.target_filename}': No such file or directory.")
+        print(f"cat: '{target}': No such file or directory.")
         return 1
-
-    for line in matched_file.readlines():
-        print(line, end="")
 
 
 if __name__ == "__main__":
@@ -46,4 +52,3 @@ if __name__ == "__main__":
 
 if __name__ == "__rdbsh__":
     exit(main(parse_args()))
-

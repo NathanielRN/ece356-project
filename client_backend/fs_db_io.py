@@ -156,7 +156,8 @@ class FSRegularFileQuery(Enum):
     )
 
     DB_QUERY_ADD_FILE_CONTENT = (
-        "INSERT INTO FileContents "
+        # Allow this command to replace existing lines
+        "REPLACE INTO FileContents "
         "SELECT fileContentID, %(line_no)s AS lineNumber, %(line_content)s AS lineContent "
         "FROM HardLinks WHERE fileID=%(fid)s"
     )
@@ -169,7 +170,8 @@ class FSRegularFileQuery(Enum):
         "SELECT * "
         "FROM (FileContents AS B) INNER JOIN (RegularFileMetadata AS C) USING (fileContentID) "
         "INNER JOIN (HardLinks AS D) USING (fileContentID) "
-        "WHERE B.lineNumber > FileContents.lineNumber "
+        "WHERE B.lineNumber > FileContents.lineNumber AND "
+        "D.fileID = HardLinks.fileID"
         ")"
     )
     DB_QUERY_CHECK_FOR_BANG = (
@@ -477,7 +479,7 @@ class FSDatabase:
         params = {"fid": entity.fid}
         with self:
             if isinstance(contents, str):
-                contents = contents.splitlines()
+                contents = contents.splitlines(keepends=True)
             if not contents:
                 contents.append("")
             params["size"] = sum(map(len, contents))
@@ -776,7 +778,7 @@ class FSDatabase:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_DELETE_ALL_FILE_CONTENT, params)
             contents = new_content
             if isinstance(contents, str):
-                contents = contents.splitlines()
+                contents = contents.splitlines(keepends=True)
             if not contents:
                 contents.append("")
             self._execute_queries(FSRegularFileQuery.DB_QUERY_SET_PROP, {
@@ -798,15 +800,18 @@ class FSDatabase:
             start_length, start_contents = last_line if last_line else (start_length, start_contents)
             contents = new_content
             if isinstance(contents, str):
-                contents = start_contents + contents
-                contents = contents.splitlines()
+                contents = contents.splitlines(keepends=True)
             if not contents:
                 contents.append("")
+            if start_contents.endswith("\n"):
+                contents.insert(0, start_contents)
+            else:
+                contents[0] = start_contents + contents[0]
             self._execute_queries(FSRegularFileQuery.DB_QUERY_INCREMENT_PROP, {
                 "fid": file_entity.fid,
                 "value": sum(map(len, contents)),
             }, format_params={"prop": "size"})
-            for line_no, content in enumerate(contents, line_no):
+            for line_no, content in enumerate(contents, start_length):
                 content_params = {"line_no": line_no, "line_content": content}
                 content_params.update(params)
                 self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_FILE_CONTENT, content_params)

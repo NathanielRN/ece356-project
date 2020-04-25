@@ -169,7 +169,7 @@ class RdbShell:
             except SystemExit as e:
                 retcode = e.code
             if stdout_redirector:
-                stdout_redirector(stdout_collector.readlines())
+                stdout_redirector(stdout_collector.getvalue())
             else:
                 print(stdout_collector.getvalue(), end="")
         else:
@@ -178,7 +178,7 @@ class RdbShell:
             stdout_collector.write(resp.stdout)
             retcode = resp.returncode
             if not retcode and stdout_redirector:
-                stdout_redirector(stdout_collector.readlines())
+                stdout_redirector(stdout_collector.getvalue())
             elif not stdout_redirector:
                 print(stdout_collector.getvalue(), end="")
 
@@ -307,7 +307,7 @@ class RdbShell:
                 return
             except MissingFileError:
                 write_file = RegularFile(self.fs, write_file, create_if_missing=True, contents="")
-
+        cmd = cmd.strip()
         cmd = self._replace_vars(cmd)
         # print(cmd)
         cmd = self._expand_cmd_globbing(cmd)

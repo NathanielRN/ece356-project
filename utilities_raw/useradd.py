@@ -16,7 +16,6 @@ from client_backend.fs_db_users import Group, User, MissingGroupError, MissingUs
 def parse_args():
     global ARGV, SHELL
     parser = ArgumentParser(description='create a new user or update default new user information')
-    parser.add_argument('-D', "--defaults", action='store_true', help="print or change default useradd configuration")
     parser.add_argument('-g', "--gid", help="name or ID of of the primary group of the new account", nargs="?")
     parser.add_argument('-G', "--groups", help="list of supplementary groups of the new account", nargs="*")
     parser.add_argument('-u', "--uid", help="userid to assign to this user", nargs="?", type=int)
@@ -26,16 +25,6 @@ def parse_args():
 
 def main(args):
     global FS
-
-    if args.defaults:
-        print("""GROUP=100
-HOME=/ 
-INACTIVE=-1
-EXPIRE=
-SHELL=rdbsh
-SKEL=/
-CREATE_MAIL_SPOOL=no""")
-        return 0
 
     groups = []
     if args.gid:

@@ -2,5 +2,7 @@ Hi Gerald,
 
 This is a cool project.
 
+And here is a target string to match.
+
 Signed,
 Paul A. S. Ward

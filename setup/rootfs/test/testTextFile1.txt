@@ -2,5 +2,7 @@
 
 This is a test file by Nathan.
 
+And here is a target string to match.
+
 Thx.
 Nathan

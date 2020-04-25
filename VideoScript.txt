@@ -1,0 +1,397 @@
+Nathan  >>> 'Hi there, my name is Eliseo Ruiz Nowell'
+
+Gerald  >>> 'Hi there, my name is Gerald Aryeetey'
+
+Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project. 
+            Let's begin with necessary setup.'
+
+        >>> 'We used MySQL, python, and the python mysql connector 
+            to create a UN*X File System using a relational database."
+
+        >>> 'First, download the mysql connector for python by Oracle if you 
+            don't have it already'
+
+        >>> apt install mysql-connector-python
+
+        >>> 'Next, we logon to our running MySQL instance from the project 
+            directory and create a Database.'
+
+            mysql
+
+            CREATE FSDemoDB
+
+        >>> 'Now set the database as the active one and source the provided 
+            File System Reltional Schema provided in the project directory.'
+
+            USE FSDemoDB
+
+            SOURCE fs_schema.sql
+
+        >>> 'That's it. The Database is setup to be used as a file system 
+            through the rdbsh program.'
+
+        >>> 'Let's see it in action by using our Database Filler Script.'
+
+            ./fill_fs_rdb.py
+        
+        >>> 'Running
+            it without any options will establish setup/rootfs/ as the root
+            directory of our filesystem and recursively copy and upload all the
+            items below it. Alternatively, you can provide the name of a
+            a sub-directory in setup/rootfs/ and this directory will be the
+            root of the filesystem instead. This is what we did to quickly test
+            the system with a smaller subset of files.'
+
+        >>> 'The files in setup/rootfs/ were obtained by creating a brand new
+            UN*X machine in Virtual Box and mounting the VBoxGuestAdditions.io
+            disk to create a shared folder between the host system and this new
+            guest system. After copying a large amount of files from the system
+            root over, we then included them in the project directory in the
+            setup/rootfs/ folder.'
+        
+        >>> In our schema, Directories, Hard Links, Symbolic Links, are all 
+            files. We use Method 1 of Specialization to distinguish between
+            Files as higher level entities and this specialized entities as
+            lower level entities.
+
+        >>> Files have the modified date which are appropriately updated as the
+            files are accessed.
+        
+        >>> Finally we created an API in Python that concentrates on a DB I/O
+            API and another API used to create class that represent important
+            entries in our database such as Hard Links, Symbolic Links, and
+            Directories. They have all the methods we need to manipulate them
+            and get information about them.
+        
+        >>> 'Now let's start our rdbsh program.'
+
+            ./rdbsh
+        
+        >>> 'We are now logged in as the root user. From here we showcase the
+            project required utilities as well as additional ones we added for
+            interest.'
+
+        >>> ls - UTILITY
+
+        >>> 'First is the ls utility. Alone without any options it outputs the
+            names of directories and files in the current directory'
+
+            ls
+
+        >>> 'We can get more details by adding the long-format command'
+
+            ls -l
+        
+        >>> 'Now in this output we can see the the total type of the file, the permission
+            bits, the number of hard links to the file, the author and owner,
+            the size of the file, the date it was created, and the name of the
+            file."
+        
+        >>> 'The permission bits were annoingly hard to get right. Because our
+            Python MySQL connector automatically converted our bits to integers
+            before they stored them in the database. When we expected to decode 
+            a binary base, it was in the wrong base. Through tweaking of the
+            connector's settings for using 'raw' values we were finally able to 
+            prevent the connector from automatically changing the base. Further,
+            MySQL binary bits add padding to bits that don't use all bits in the
+            allocated space. Permission bits only need 9 bits, but MySQL only
+            allows for columns in groups of 8 bits, so the permissions were
+            incorrectly stored. We fixed the problem using the struct to unpack
+            the values with the 0s stripped.'
+        
+        >>> Finally, we can provide a path to ls to list files in directories
+            other than the current directory
+
+            ls bin/
+
+            ls -l bin/
+        
+        >>> It can handle errors when the file or directory doesn't exist
+
+            ls notFoundDirectory
+        
+        >>> Files that begin with a dot are filtered out, to view them use
+
+            ls -a
+        
+        >>> cd - UTILITY
+
+        >>> Next, we show that we can change directories using the cd command.
+            This is tracked using a program variable handled by the rdbsh
+            program.
+        
+            cd bin/
+
+            cd ../
+
+            cd root/
+
+            cd ../etc
+
+            cd ../
+
+        >>> Travelling up the directory is limited to the root directory. This 
+            was a difficult case to handle because we only have directories or
+            files but the root directory is a special case of directory with no
+            parent, so when going up the tree we needed to find out if we were
+            at the root to stop travelling up the file structure
+
+            cd ../
+
+        >>> grep - UITILITY
+        
+        >>> Next, we see the grep utility in action. Without any options and
+            just the file name and pattern we find the text we are looking for.
+            It outputs the line number of the file where it found the match.
+
+            grep test/testTextFile1.txt 'target'
+        
+        >>> Our grep supports glob file patterns as well as regex expressions.
+            In the case where there is more than one result the file name is
+            included in the grep output like the real un*x utility
+
+            grep /test/test* 'tar.*'
+
+        >>> Using an option, we can search through the files recursively
+
+            grep -r test/ 'targ.*'
+        
+        >>> The grep utility can also handle missing files
+
+            grep notExists 'findIt'
+        
+        >>> find - UTILITY
+
+        >>> find was an interesting combination of ls for the output and grep to
+            search for files which match the passed option
+        
+            find test/testTextFile1.txt
+        
+        >>> It also supports searching for files using globs
+
+            find test/**/test*
+        
+        >>> It also handles missing files
+
+            find missingFile.txt
+        
+        >>> cat - UTILITY
+
+        >>> We can use the cat utility to output the contents of a file. It
+            takes the path of the file as input
+
+            cat test/testTextFile1.txt
+
+        >>> Files that don't exist have an appropriate error
+
+            cat notExists.file
+
+        >>> echo - UTILITY
+
+        >>> You can use echo to view system variables that define the shell
+            context. We can see the home directory
+
+            echo $HOME
+        
+        >>> The variable that tracks the current path is seen next, which is
+            important for calculating relative paths and used by utilities to
+            know the context
+
+            echo $PWD
+        
+        >>> The path shows where the look for utilities
+
+            echo $PATH
+        
+        >>> The user can be seen from the user variable, this confirms we are
+            logged in as the root
+
+            echo $USER
+        
+        >>> useradd - UTILITY
+
+        >>> We can use the useradd utility to create our own users in addition
+            to the root user. It will automatically have an id added to it
+
+            useradd nathan1
+        
+        >>> If you try to create a user that already exists it will fail with
+            an appropriate message
+
+            useradd nathan1
+        
+        >>> You can add a custom id to a user when you create them
+
+            useradd -u 1234 nathan2
+        
+        >>> If you try to add a user with the same id you'll get an appropriate
+            error
+
+            useradd -u 1234 nathan3
+
+        >>> IF you try to add a user with the same name you'll also get an error
+
+            useradd -u 5000 nathan2
+        
+        >>> Every user is associated to a group matched  to their user, but you
+            can also add the user to be associated to additional groups using
+            the group option
+
+            useradd nathan3 -G 1000 10001
+
+        >>> You can also do it by providing the group name
+
+            useradd nathan4 -G nathan3
+        
+        >>> If you try to associate to a group that doesn't exist it fails
+
+            useradd nathan5 -G nathan9000
+        
+        >>> Right now anyone can make users but an improvement would be to add
+            a check for only administrators
+
+        >>> groupadd - UTILITY
+    
+        >>> The groupadd functionaliity is very similar to useradd so we only
+            show a single use
+
+            groupadd -u 54321 nathanGroup1
+        
+        >>> Logging in - FEATURE
+
+        >>> Now that we have users, we can log out and log in as them, we exit
+            the current session as root
+
+            Ctrl + D
+        
+        >>> And then login as a user by providing the id
+
+            ./rdbsh -u 1000
+        
+        >>> And you can also login in by user name
+
+            ./rdbsh -u nathan1
+        
+        >>> This logs you in as the `enruizno` user because they were the user
+            associated to the files that were uploaded from the guest unix
+            machine we created so the user was created automatically
+
+        >>> ln - UTILITY
+
+        >>> We couldn't add Symbolic Links to the sample data because they
+            have paths that we expect won't match a grader's paths. So instead
+            we implemented this utility to show links in action
+
+        >>> First we create a symbolic link to a regular file
+
+            ln -s testTextFile1.txt symbolicLinks/file_sym_link
+
+        >>> We can see that the file link works as expected because we can use
+            it as we would the original file
+
+            cat symbolicLinks/file_sym_link
+        
+        >>> We can also make a symbolic link to a directory
+
+            ln -s testDir2/ symbolicLinks/dir_sym_link
+        
+        >>> And then cd using that symbolic link
+
+            cd symbolicLinks/dir_sym_link
+    
+        >>> This gets us to the directory the sym link points to.
+
+        >>> Next we add hard links to files
+
+            ln testTextFile1.txt hardLinkTestTextFile1.txt
+
+        >>> We'll use this in the remove utility next
+
+        >>> rm - UTILITY
+
+        >>> We confirm that a file exists
+
+            ls testTextFile2.txt
+
+        >>> We can remove individual files
+
+            rm testTextFile2.txt
+        
+        >>> And confirm its gone
+
+            ls testTextFile2.txt
+
+        >>> We can see a directory exists
+
+            ls -l testDir2/
+        
+        >>> We will get an error if we try to delete a directory
+
+            rm testDir2/
+
+        >>> But we can add the recursive option to remove it recursively
+
+            rm -r testDir2/
+
+        >>> And now we can see that it's gone
+
+            ls -l testDir2/
+
+        >>> In our implementation, we used hardlinks to decided if a file should
+            still exist. As long as there is a hardlink pointing to it the file
+            would exist.
+
+            rm testTextFile2.txt
+        
+        >>> Even though we just deleted that file, it can still be viewed
+            because of the hard link we made before
+
+            cat hardLinkTestTextFile1.txt
+        
+        >>> But the symbolic link doesn't work because it pointed to the file
+            reference that got deleted
+
+            cat symbolicLinks/file_sym_link
+
+        >>> mkdir - UTILITY
+
+        >>> You can make a directory using the mkdir utility
+
+            mkdir testDir3/
+        
+        >>> Now we can cd into it
+
+            cd testDir3/
+
+        >>> And we go back to the root to continue
+
+            cd ../
+
+        >>> mv - UTILITY
+
+        >>> This utiltiy allows us to move a file to a new location,
+
+            mv testTextFile2.txt testDir3/testTextFile2.txt
+
+        >>> And this is useful for renaming a file as well
+
+            mv testDir3/testTextFile2.txt testDir3/princessPeachLetter.txt
+
+        >>> touch - UTILITY
+
+        >>> In this utility we can create files even if it's without populating
+            their contents
+
+            touch aNewFile.txt
+        
+        >>> We can see it created using ls
+
+            ls aNewFile.txt
+        
+        >>> We're not restricted to only txt files either
+
+            touch krabbyPattySecretFormula.wav
+        
+        >>> And can confirm it exists
+
+            ls krabbyPattySecretFormula.wav

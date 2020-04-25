@@ -37,7 +37,7 @@ class File:
         if not fs_db:
             raise ValueError("Did not provide filesystem DB connection")
         if create_if_missing and cls is File:
-            raise ValueError("Attempting an untyped file")
+            raise ValueError("Attempting to create a file without a type")
 
         inst = super().__new__(cls)
         inst.fs_db = fs_db

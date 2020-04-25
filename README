@@ -24,4 +24,4 @@ MySQL 8.0+
 
 # Navigating the File System
 1. Run `./rdbsh` to enter the file system
-2. To exit, press Ctrl+D
+2. To exit, press Ctrl+D or alternatively type `exit` and press enter

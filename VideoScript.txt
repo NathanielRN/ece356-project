@@ -229,10 +229,18 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
         
             find projectDemoFolder/demoTextFile1.txt
         
-        >>> It also supports searching for files using globs
+        >>> Expected output is all files named demo
 
-            find projectDemoFolder/**/demo*
+            find projectDemoFolder/demoDir/ projectDemoFolder/demoDir2/ +name "*demo*"
         
+        >>> Expected output is all directories 
+
+            find +type d
+
+        >>> Expected output is  all empty files
+
+            find +empty +type f
+
         >>> It also handles errors due to missing files
 
             find missingFile.txt

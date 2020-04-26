@@ -163,7 +163,7 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
         >>> Using the Tab button you can finish the path by cycling through
             options available in the DB
         
-            ls bin/ece356project + Tab
+            ls bin/ech + Tab
         
         >>> You can also repeat previous commands using the arrow keys to cycle
             through options
@@ -180,7 +180,7 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             This is tracked using a program variable handled by the rdbsh
             program.
         
-            cd ece356projectCustomUtilities/
+            cd bin/
 
             cd ../
 
@@ -206,17 +206,17 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             just the file name and pattern we find the text we are looking for.
             It outputs the line number of the file where it found the match.
 
-            grep projectDemoFolder/demoTextFile1.txt 'target'
+            grep projectDemoFolder/demoTextFile1.txt target
         
         >>> Our grep supports glob file patterns as well as regex expressions.
             In the case where there is more than one result the file name is
             included in the grep output like the real un*x utility
 
-            grep projectDemoFolder/demo* 'tar.*'
+            grep projectDemoFolder/demo*.txt "tar.*"
 
         >>> Using an option, we can search through the files recursively
 
-            grep -r projectDemoFolder/ 'targ.*'
+            grep -r projectDemoFolder/ "targ.*"
         
         >>> The grep utility can also handle missing files
 
@@ -232,6 +232,10 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
         >>> Expected output is all files named demo
 
             find projectDemoFolder/demoDir/ projectDemoFolder/demoDir2/ +name "*demo*"
+        
+        >>> We can get the LONG FORMAT by adding the +ls command
+
+            find projectDemoFolder/demoDir/ projectDemoFolder/demoDir2/ +name "*demo*" +ls
         
         >>> Expected output is all directories 
 
@@ -277,7 +281,7 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             logged in as the root
 
             echo $USER
-        
+                
         >>> useradd - UTILITY
 
         >>> We can use the useradd utility to create our own users in addition
@@ -350,6 +354,21 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             associated to the files that were uploaded from the guest unix
             machine we created so the user was created automatically
 
+        >>> mv - UTILITY
+
+        >>> This utiltiy allows us to move a file to a new location,
+
+            mv projectDemoFolder/demoTextFile2.txt demoDir/demoTextFile2.txt
+
+        >>> And this is useful for renaming a file as well
+
+            mv projectDemoFolder/demoDir/demoTextFile2.txt projectDemoFolder/demoDir/princessPeachLetter.txt
+        
+        >>> You can also move one or many files into a folder
+
+            mv demoDir/demoTextFile* demoDir2/
+            mv demoDir/demoTextFile2.txt demoDir3/
+        
         >>> ln - UTILITY
 
         >>> We couldn't add Symbolic Links to the sample data because they
@@ -358,74 +377,76 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
         >>> First we create a symbolic link to a regular file
 
-            ln -s demoTextFile1.txt symbolicLinks/file_sym_link
+            ln -s projectDemoFolder/demoTextFile1.txt projectDemoFolder/symbolicLinks/file_sym_link
 
         >>> We can see that the file link works as expected because we can use
             it as we would the original file
 
-            cat symbolicLinks/file_sym_link
+            cat projectDemoFolder/symbolicLinks/file_sym_link
         
         >>> We can also make a symbolic link to a directory
 
-            ln -s demoDir2/ symbolicLinks/dir_sym_link
+            ln -s projectDemoFolder/demoDir2/ projectDemoFolder/symbolicLinks/dir_sym_link
         
         >>> And then cd using that symbolic link
 
-            cd symbolicLinks/dir_sym_link
+            cd projectDemoFolder/symbolicLinks/dir_sym_link
     
         >>> This gets us to the directory the sym link points to.
 
         >>> Next we add hard links to files
 
-            ln demoTextFile1.txt hardLinkDemoTextFile1.txt
+            cd ../../
+
+            ln projectDemoFolder/demoTextFile1.txt projectDemoFolder/hardLinkDemoTextFile1.txt
 
         >>> We'll use this in the remove utility next
 
         >>> rm - UTILITY
 
-        >>> We confirm that a file exists
+        >>> We confirm that a file exists - demoTextFile2.txt
 
-            ls demoTextFile2.txt
+            ls projectDemoFolder
 
         >>> We can remove individual files
 
-            rm demoTextFile2.txt
+            rm projectDemoFolder/demoTextFile4.txt
         
         >>> And confirm its gone
 
-            ls demoTextFile2.txt
+            ls projectDemoFolder/
 
-        >>> We can see a directory exists
+        >>> We can see a directory demoDir2 exists
 
-            ls -l demoDir2/
+            ls -l projectDemoFolder/
         
         >>> We will get an error if we try to delete a directory
 
-            rm demoDir2/
+            rm projectDemoFolder/demoDir2/
 
         >>> But we can add the recursive option to remove it recursively
 
-            rm -r demoDir2/
+            rm -r projectDemoFolder/demoDir2/
 
         >>> And now we can see that it's gone
 
-            ls -l demoDir2/
+            ls -l projectDemoFolder/
 
         >>> In our implementation, we used hardlinks to decided if a file should
             still exist. As long as there is a hardlink pointing to it the file
             would exist.
 
-            rm demoTextFile2.txt
+            rm projectDemoFolder/demoTextFile1.txt
         
         >>> Even though we just deleted that file, it can still be viewed
             because of the hard link we made before
 
-            cat hardLinkDemoTextFile1.txt
+            cat projectDemoFolder/hardLinkDemoTextFile1.txt
         
         >>> But the symbolic link doesn't work because it pointed to the file
             reference that got deleted
 
-            cat symbolicLinks/file_sym_link
+            cat projectDemoFolder/symbolicLinks/file_sym_link
 
         >>> mkdir - UTILITY
 
@@ -441,21 +462,6 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
             cd ../
 
-        >>> mv - UTILITY
-
-        >>> This utiltiy allows us to move a file to a new location,
-
-            mv demoTextFile2.txt demoDir3/demoTextFile2.txt
-
-        >>> And this is useful for renaming a file as well
-
-            mv demoDir3/demoTextFile2.txt demoDir3/princessPeachLetter.txt
-        
-        >>> You can also move one or many files into a folder
-
-            mv demoDir3/demoTextFile* demoDir3/
-            mv demoDir/demoTextFile3.txt demoDir3/
-
         >>> touch - UTILITY
 
         >>> In this utility we can create files even if it's without populating
@@ -465,7 +471,7 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
         
         >>> We can see it created using ls
 
-            ls aNewFile.txt
+            ls
         
         >>> We're not restricted to only txt files either
 

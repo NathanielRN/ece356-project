@@ -4,6 +4,7 @@
 Note: Change shebang to `rdbsh` to use has system utility with shell
 """
 import re
+from datetime import datetime, timedelta
 from sys import exit
 from argparse import ArgumentParser, Namespace, RawTextHelpFormatter
 
@@ -54,6 +55,10 @@ def split_paths_from_expression(paths_and_expression):
             pattern_args.append(arg)
         else:
             paths.append(arg)
+    if curr_pattern:
+        if len(pattern_args) <= 1:
+            pattern_args = pattern_args[0] if len(pattern_args) == 1 else True
+        setattr(expression, curr_pattern, pattern_args)
     return paths, expression
 
 def verify_expression(expression):
@@ -124,9 +129,7 @@ def check_against_expression(f, expression):
             for line in f.readlines():
                 if line:
                     # Has content
-                    break
-            else:
-                return False
+                    return False
         else:
             # All other file types are "non-empty"
             return False
@@ -135,21 +138,31 @@ def check_against_expression(f, expression):
             return False
     return True
 
-def as_long_format(f):
-    filetype_map = {
-        Directory: "d",
-        SymbolicLink: "l",
-    }
-    filetype_desc = filetype_map.get(curr_file.type, "-")
-    return (
-        f"{filetype_desc}{str(f.permissions)} "
-        f"{f.num_of_hard_links} "
-        f"{f.owner.name} "
-        f"{f.group_owner.name} "
-        f"{f.size} "
-        f"{f.modified_date.strftime('%b %d %H:%M')} "
-        f"{f.full_name}"
-    )
+def as_long_format(curr_file):
+    filetype_desc = '-'
+    link_desc = ''
+    filetype = curr_file.type
+    if filetype is SymbolicLink:
+        filetype_desc = 'l'
+        link_desc = f' -> {curr_file.linked_path}'
+    permissions_str = f"{filetype_desc}{str(curr_file.permissions)} "
+    hard_links_str = f"{curr_file.num_of_hard_links} "
+    owner_str = f"{curr_file.owner.name} "
+    group_owner_str = f"{curr_file.group_owner.name} "
+    file_size_str = f"{curr_file.size} "
+    file_date = curr_file.modified_date if isinstance(curr_file, Directory) else curr_file.created_date
+    date_time_str = f"{file_date.strftime('%b %d %H:%M')} " if datetime.now() - file_date < timedelta(days=6*30) and file_date < datetime.now() else f"{file_date.strftime('%b %d %Y')}"
+    full_name_str = f"{curr_file.full_name}{link_desc}"
+    file_desc = [
+        permissions_str,
+        hard_links_str,
+        owner_str,
+        group_owner_str,
+        file_size_str,
+        date_time_str,
+        full_name_str
+    ]
+    return " ".join(file_desc)
 
 def _glob_to_sql(glob):
     # Will change any glob characters
@@ -180,7 +193,6 @@ def main(args):
             start_file = File(FS, path)
             files_to_check.append(start_file)
             if isinstance(start_file, Directory):
-                    print(sql_name)
                     files_to_check.extend(start_file.get_children_like(sql_name, search_subdirs=True))
             for check_file in files_to_check:
                 if regex_name.match(check_file.name) and check_against_expression(check_file, expression):

@@ -1,0 +1,159 @@
+#!rdbsh
+"""Output the contents of a directory
+
+-l: Use long-format when viewing output
+"""
+from sys import exit
+from argparse import ArgumentParser
+from datetime import datetime, timedelta
+from pathlib import PurePosixPath
+from pathlib import Path
+
+from client_backend.fs_db_file import File, Directory, SymbolicLink
+from client_backend.fs_db_file import MissingFileError, IncorrectFileTypeError
+from client_backend.fs_db_io import FSDatabase
+
+def parse_args():
+    global ARGV, SHELL
+    parser = ArgumentParser(description='List files in a directory.')
+    parser.add_argument('-l', '--long-format', action='store_true', help="use a long listing format")
+    parser.add_argument('-a', '--all', action='store_true', help="do not ignore entries start with .")
+    parser.add_argument('path', 
+    help='the path(s) of directories whose files should be listed',
+    nargs='*')
+
+    return parser.parse_args(ARGV)
+
+
+def resolve_to_dir(path):
+    global FS
+    try:
+        f = File.resolve_to(FS, path, Directory)
+        return f
+    except IncorrectFileTypeError:
+        return None
+
+def get_name_relative_to(base_dir, curr_file):
+    # Watch out for root directory when using this
+    base_path = PurePosixPath(base_dir.full_name)
+    file_path = PurePosixPath(curr_file.full_name)
+    try:
+        return file_path.relative_to(base_path) if isinstance(base_dir, Directory) else file_path
+    except ValueError:
+        if base_dir == curr_file and isinstance(base_dir, Directory):
+            return "."
+        if base_dir.get_parent_directory() == base_dir:
+            return ".."
+
+def list_contents(directory, args, include_header=True):
+    global FS, SHELL
+    files = list(directory.walk(include_hidden=args.all)) if isinstance(directory, Directory) else []
+    if isinstance(directory, Directory) and args.all:
+        files.insert(0, directory)
+        parent_directory = directory.get_parent_directory()
+        if parent_directory == directory:
+            files.insert(0, parent_directory)
+    max_column_widths = [0, 0, 0, 0, 0, 0, 0]
+    if args.long_format:
+        file_desc_list = []
+        total_size = 0
+
+        for curr_file in files:
+            total_size += curr_file.size
+            filetype_desc = '-'
+            link_desc = ''
+            filetype = curr_file.type
+            if filetype is SymbolicLink:
+                filetype_desc = 'l'
+                link_desc = f' -> {curr_file.linked_path}'
+            permissions_str = f"{filetype_desc}{str(curr_file.permissions)} "
+            hard_links_str = f"{curr_file.num_of_hard_links} "
+            owner_str = f"{curr_file.owner.name} "
+            group_owner_str = f"{curr_file.group_owner.name} "
+            file_size_str = f"{curr_file.size} "
+            file_date = curr_file.modified_date if isinstance(curr_file, Directory) else curr_file.created_date
+            date_time_str = f"{file_date.strftime('%b %d %H:%M')} " if datetime.now() - file_date < timedelta(days=6*30) and file_date < datetime.now() else f"{file_date.strftime('%b %d %Y')}"
+            relative_name_str = f"{get_name_relative_to(directory, curr_file)}{link_desc}"
+            max_column_widths[0] = max(max_column_widths[0], len(permissions_str))
+            max_column_widths[1] = max(max_column_widths[1], len(hard_links_str))
+            max_column_widths[2] = max(max_column_widths[2], len(owner_str))
+            max_column_widths[3] = max(max_column_widths[3], len(group_owner_str))
+            max_column_widths[4] = max(max_column_widths[4], len(file_size_str))
+            max_column_widths[5] = max(max_column_widths[5], len(date_time_str))
+            max_column_widths[6] = max(max_column_widths[6], len(relative_name_str))
+            file_desc_list.append([
+                permissions_str,
+                hard_links_str,
+                owner_str,
+                group_owner_str,
+                file_size_str,
+                date_time_str,
+                relative_name_str
+            ])
+            if directory.full_name == "/" and curr_file == directory:
+                parent_name = f"..{link_desc}"
+                file_desc_list.append([
+                    permissions_str,
+                    hard_links_str,
+                    owner_str,
+                    group_owner_str,
+                    file_size_str,
+                    date_time_str,
+                    parent_name
+                ])
+                max_column_widths[6] = max(max_column_widths[6], len(parent_name))
+
+
+        if include_header:
+            print(f"total {total_size}")
+        for file_desc in file_desc_list:
+            print(" ".join([f"{column:<{max_column_widths[j]}}" for j, column in enumerate(file_desc)]))
+    else:
+        for curr_file in files:
+            print(get_name_relative_to(directory, curr_file), end=" ")
+            if directory.full_name == "/" and curr_file == directory:
+                print("..", end=" ")
+
+def main(args):
+    global FS
+    to_list = args.path or ["."]
+
+    if len(to_list) == 1:
+        try:
+            f = File(FS, to_list[0])
+            as_dir = resolve_to_dir(to_list[0])
+            list_contents(as_dir or f, args)
+            print()
+            return
+        except MissingFileError:
+            print(f"Cannot access '{to_list[0]}': No such file or directory.")
+            return 1
+
+    for path in to_list:
+        try:
+            f = File(FS, path)
+            as_dir = resolve_to_dir(path)
+            if as_dir:
+                print(f"{f.full_name}:")
+                list_contents(as_dir, args)
+                print()
+            else:
+                list_contents(f, args, include_header=False)
+
+        except MissingFileError:
+            print(f"Cannot access '{path}': No such file or directory.")
+            return 1
+        print()
+
+
+if __name__ == "__main__":
+    import sys
+    from client_backend import shell_context
+    FS = FSDatabase('.fs_db_rdbsh')
+    ARGV = sys.argv[1:]
+    SHELL = shell_context
+    exit(main(parse_args()))
+
+
+if __name__ == "__rdbsh__":
+    exit(main(parse_args()))

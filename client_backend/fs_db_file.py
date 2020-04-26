@@ -298,8 +298,8 @@ class RegularFile(File):
         self.open()
         return res
 
-    def readlines(self):
-        yield from self.fs_db.readlines(self)
+    def readlines(self, decoded=True):
+        yield from self.fs_db.readlines(self, decoded)
         self.open()
 
     def append(self, new_content):

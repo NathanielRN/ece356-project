@@ -66,6 +66,14 @@ class User:
         # NOTE: Should probably check if user is part of 2+ groups
         self.fs_db.revoke_membership(group, self)
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self.uid == other.uid
+
+    def __ne__(self, other):
+        return not (self == other)
+
 class MissingGroupError(ValueError):
     pass
 
@@ -114,3 +122,11 @@ class Group:
 
     def remove_user(self, user):
         user.leave_group(self)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self.gid == other.gid
+
+    def __ne__(self, other):
+        return not (self == other)

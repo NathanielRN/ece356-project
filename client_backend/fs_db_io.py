@@ -827,13 +827,18 @@ class FSDatabase:
                 self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_FILE_CONTENT, content_params)
             self.connection.commit()
 
-    def readlines(self, file_entity):
+    def readlines(self, file_entity, decoded=True):
+        self.use_raw = True
+        contents = []
         with self:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_GET_FILE_CONTENT, {
                 "fid": file_entity.fid
             })
             for _, line_content in self.cursor:
-                yield line_content
+                if decoded:
+                    line_content = line_content.decode("utf-8")
+                contents.append(line_content)
+        yield from contents
 
     def check_if_utility(self, file_entity):
         with self:

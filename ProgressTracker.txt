@@ -26,7 +26,7 @@
         - [x] name
         - [x] permission bits
         - [x] size
-        - [ ] type
+        - [x] type
     - [x] File contents
     - [x] Directories maintained in the standard un*x manner
         - [x] with sub-directories as created

@@ -149,7 +149,7 @@ class RdbShell:
         if not dbfile.check_access(user, PermissionBits.EXECUTE_OPERATION | PermissionBits.READ_OPERATION):
             self.warn("Insufficient Permissions to read/execute file")
             return False
-        for line in dbfile.readlines():
+        for line in dbfile.readlines(decoded=False):
             runnable_file.write(line)
         runnable_file.flush()
         return True
@@ -177,7 +177,7 @@ class RdbShell:
                 print(stdout_collector.getvalue(), end="")
         else:
             self.warn("Running command in system shell")
-            resp = run_sys((str(cmd_path),) + self.argv, shell=True, capture_output=True)
+            resp = run_sys((str(cmd_path),) + tuple(self.argv), shell=True, capture_output=True)
             stdout_collector.write(resp.stdout)
             retcode = resp.returncode
             if not retcode and stdout_redirector:
@@ -217,7 +217,7 @@ class RdbShell:
                     else:
                         continue
                     sub_cmd = list(sub_cmd)
-                    sub_cmd[match.start():match.end()] = matched
+                    sub_cmd[match.start():match.end()] = str(matched)
                     sub_cmd = "".join(sub_cmd)
                 unescaped[idx] = sub_cmd
             cmd[cmd_idx] = " ".join(unescaped)
@@ -344,7 +344,7 @@ class RdbShell:
                 return
         
         status = 0
-        with open(self.workspace.joinpath(command_file.name), "w+") as f:
+        with open(self.workspace.joinpath(command_file.name), "wb+") as f:
             cmd_path = Path(f.name)
             chmod(cmd_path, cmd_path.stat().st_mode & (S_IRWXU | S_IRWXG | S_IRWXO) & (S_IXGRP | S_IXUSR | S_IXOTH))
             if self._load_file(f, command_file):

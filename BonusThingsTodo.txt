@@ -1,5 +1,0 @@
-5. Make `ls` columns align?
-
-Potential Modes of failure:
-* Too long names i.e. filename/username/groupname
-* Append be broken rn

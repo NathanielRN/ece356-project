@@ -44,10 +44,10 @@
             box into your system
 - [x] Create the following utilities
     - [x] rdbsh shell program
-        - [ ] Keeps track of current working directory
-        - [ ] (cd) Change the current working directory
-        - [ ] Maintain a PATH variable
-        - [ ] Execute any executable program that is in your PATH
+        - [x] Keeps track of current working directory
+        - [x] (cd) Change the current working directory
+        - [x] Maintain a PATH variable
+        - [x] Execute any executable program that is in your PATH
     - [x] ls (May choose to implement as a shell command in your shell)
         - [x] Accept -l argument 
             "-l (The lowercase letter ``ell''.) List in long format.  

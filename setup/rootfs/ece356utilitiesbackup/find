@@ -182,7 +182,6 @@ def main(args):
             if isinstance(start_file, Directory):
                     print(sql_name)
                     files_to_check.extend(start_file.get_children_like(sql_name, search_subdirs=True))
-                    print()
             for check_file in files_to_check:
                 if regex_name.match(check_file.name) and check_against_expression(check_file, expression):
                     print(as_long_format(check_file) if expression.ls else check_file.full_name)

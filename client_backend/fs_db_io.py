@@ -867,4 +867,3 @@ class FSDatabase:
         with self:
             self._execute_queries(FSRegularFileQuery.DB_QUERY_ADD_HARDLINK, params)
             self.connection.commit()
-

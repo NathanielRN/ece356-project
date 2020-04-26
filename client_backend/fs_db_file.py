@@ -192,6 +192,11 @@ class File:
         assert own_type is type(self)
         return own_type
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self.fid == other.fid
+
 
 class SymbolicLink(File):
     def __init__(self, fs_db, path_or_id, create_if_missing=False, linked_path=None):

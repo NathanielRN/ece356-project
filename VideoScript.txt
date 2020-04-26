@@ -18,14 +18,20 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
             mysql
 
-            CREATE FSDemoDB
+            CREATE DATABASE FSV1;
 
         >>> 'Now set the database as the active one and source the provided 
             File System Reltional Schema provided in the project directory.'
 
-            USE FSDemoDB
+            USE FSV1;
 
-            SOURCE fs_schema.sql
+            SOURCE fs_schema.sql;
+        
+        >>> Using the information needed to connect to your MySQL database, we
+            make a copy of .fs_db_rdbsh.template and rename it to .fs_db_rdbsh
+            at the root of our project directory.
+
+            Show/Copy .fs_db_rdbsh.template and fill it out
 
         >>> 'That's it. The Database is setup to be used as a file system 
             through the rdbsh program.'
@@ -34,10 +40,9 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
             ./fill_fs_rdb.py
         
-        >>> 'Running
-            it without any options will establish setup/rootfs/ as the root
-            directory of our filesystem and recursively copy and upload all the
-            items below it. Alternatively, you can provide the name of a
+        >>> 'Running it without any options will establish setup/rootfs/ as the
+            root directory of our filesystem and recursively copy and upload all
+            the items below it. Alternatively, you can provide the name of a
             a sub-directory in setup/rootfs/ and this directory will be the
             root of the filesystem instead. This is what we did to quickly test
             the system with a smaller subset of files.'
@@ -47,18 +52,19 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             disk to create a shared folder between the host system and this new
             guest system. After copying a large amount of files from the system
             root over, we then included them in the project directory in the
-            setup/rootfs/ folder.'
+            setup/rootfs/ directory.'
         
         >>> In our schema, Directories, Hard Links, Symbolic Links, are all 
-            files. We use Method 1 of Specialization to distinguish between
-            Files as higher level entities and this specialized entities as
+            files. We used Method 1 of Specialization to distinguish between
+            Files - higher level entities - and the specialized entities -
+            Directories, Symbolic Links, and Regular Files - as
             lower level entities.
 
         >>> Files have the modified date which are appropriately updated as the
             files are accessed.
         
         >>> Finally we created an API in Python that concentrates on a DB I/O
-            API and another API used to create class that represent important
+            API and another API used to create classes that represent important
             entries in our database such as Hard Links, Symbolic Links, and
             Directories. They have all the methods we need to manipulate them
             and get information about them.
@@ -71,6 +77,14 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             project required utilities as well as additional ones we added for
             interest.'
 
+        >>> Our utilities are not Shell commands, instead they are actually
+            stored in the memory at the bin folder of our filesystem where they
+            are subsequently picked up by rdbsh using the PATH variable when
+            they are called from the rdbsh shell
+        
+        >>> All the utilites use a python argument parse to enforce parameters
+            and make some flag optional
+
         >>> ls - UTILITY
 
         >>> 'First is the ls utility. Alone without any options it outputs the
@@ -81,11 +95,37 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
         >>> 'We can get more details by adding the long-format command'
 
             ls -l
+
+        >>> We put in the extra effort to make sure the columns were properly
+            aligned here
         
-        >>> 'Now in this output we can see the the total type of the file, the permission
-            bits, the number of hard links to the file, the author and owner,
-            the size of the file, the date it was created, and the name of the
-            file."
+        >>> The format is as follows:
+        
+        >>>> The type of the item (- Regular File/s Symbolic Link/d Directory)
+
+        >>> The next 9 bits are permission bits for Reading/Writing/Executing
+            for the Owner, the Group, and Other (or the World)
+        
+        >>> The next number is how many hard links are pointing to it
+
+        >>> The next is the user owner
+
+        >>> The next is the group owner
+
+        >>> The next is the size of the item in Bytes
+
+        >>> The next is a date. For files it is the date the file was last
+            accessed, for directories it is the date created. If the file is
+            more than 6 months old or if it is in the future it contains a year
+            instead of a time. This required learning about how to FORMAT the
+            date properly
+
+        >>> Finally we see the name of the directory or file.
+        
+        >>> 'Now in this output we can see the the total size of all the files
+            type of the file, the permission bits, the number of hard links to
+            the file, the author and owner, the size of the file, the date it
+            was created, and the name of the file."
         
         >>> 'The permission bits were annoingly hard to get right. Because our
             Python MySQL connector automatically converted our bits to integers
@@ -94,10 +134,11 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             connector's settings for using 'raw' values we were finally able to 
             prevent the connector from automatically changing the base. Further,
             MySQL binary bits add padding to bits that don't use all bits in the
-            allocated space. Permission bits only need 9 bits, but MySQL only
-            allows for columns in groups of 8 bits, so the permissions were
-            incorrectly stored. We fixed the problem using the struct to unpack
-            the values with the 0s stripped.'
+            allocated space. This was a problem because Permission bits only
+            need 9 bits, but MySQL only allows for columns in groups of 8 bits,
+            so the permissions were initially incorrectly stored. We fixed the
+            problem using the struct module to unpack the values with the 
+            leading 0s stripped.'
         
         >>> Finally, we can provide a path to ls to list files in directories
             other than the current directory
@@ -114,13 +155,32 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
             ls -a
         
+        >>> HISTORY - FEATURE
+
+        >>> At this point you can notice a feature we added that allows our
+            rdbsh program to have autocomplete and history
+        
+        >>> Using the Tab button you can finish the path by cycling through
+            options available in the DB
+        
+            ls bin/ece356project + Tab
+        
+        >>> You can also repeat previous commands using the arrow keys to cycle
+            through options
+
+            Up + Down arrow keys
+
+        >>> This creates the .history file at the root directory to keep track
+            of it all. This all was done with the help of a standard python
+            module
+        
         >>> cd - UTILITY
 
         >>> Next, we show that we can change directories using the cd command.
             This is tracked using a program variable handled by the rdbsh
             program.
         
-            cd bin/
+            cd ece356projectCustomUtilities/
 
             cd ../
 
@@ -129,6 +189,8 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             cd ../etc
 
             cd ../
+        
+        >>>> You can see that our cd supports relative paths as well
 
         >>> Travelling up the directory is limited to the root directory. This 
             was a difficult case to handle because we only have directories or
@@ -144,17 +206,17 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             just the file name and pattern we find the text we are looking for.
             It outputs the line number of the file where it found the match.
 
-            grep test/testTextFile1.txt 'target'
+            grep projectDemoFolder/demoTextFile1.txt 'target'
         
         >>> Our grep supports glob file patterns as well as regex expressions.
             In the case where there is more than one result the file name is
             included in the grep output like the real un*x utility
 
-            grep /test/test* 'tar.*'
+            grep projectDemoFolder/demo* 'tar.*'
 
         >>> Using an option, we can search through the files recursively
 
-            grep -r test/ 'targ.*'
+            grep -r projectDemoFolder/ 'targ.*'
         
         >>> The grep utility can also handle missing files
 
@@ -165,13 +227,13 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
         >>> find was an interesting combination of ls for the output and grep to
             search for files which match the passed option
         
-            find test/testTextFile1.txt
+            find projectDemoFolder/demoTextFile1.txt
         
         >>> It also supports searching for files using globs
 
-            find test/**/test*
+            find projectDemoFolder/**/demo*
         
-        >>> It also handles missing files
+        >>> It also handles errors due to missing files
 
             find missingFile.txt
         
@@ -180,7 +242,7 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
         >>> We can use the cat utility to output the contents of a file. It
             takes the path of the file as input
 
-            cat test/testTextFile1.txt
+            cat projectDemoFolder/demoTextFile1.txt
 
         >>> Files that don't exist have an appropriate error
 
@@ -199,7 +261,7 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
             echo $PWD
         
-        >>> The path shows where the look for utilities
+        >>> The path is used to determine where to look for utilities
 
             echo $PATH
         
@@ -248,25 +310,29 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
             useradd nathan5 -G nathan9000
         
         >>> Right now anyone can make users but an improvement would be to add
-            a check for only administrators
+            a check so that only administrators could do it
 
         >>> groupadd - UTILITY
     
         >>> The groupadd functionaliity is very similar to useradd so we only
             show a single use
 
-            groupadd -u 54321 nathanGroup1
+            groupadd -g 54321 nathanGroup1
         
         >>> Logging in - FEATURE
 
         >>> Now that we have users, we can log out and log in as them, we exit
-            the current session as root
+            the current session where we were logged in as root
 
             Ctrl + D
         
         >>> And then login as a user by providing the id
 
             ./rdbsh -u 1000
+        
+        >>> We can log out again
+
+            Ctrl + D
         
         >>> And you can also login in by user name
 
@@ -284,7 +350,7 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
         >>> First we create a symbolic link to a regular file
 
-            ln -s testTextFile1.txt symbolicLinks/file_sym_link
+            ln -s demoTextFile1.txt symbolicLinks/file_sym_link
 
         >>> We can see that the file link works as expected because we can use
             it as we would the original file
@@ -293,7 +359,7 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
         
         >>> We can also make a symbolic link to a directory
 
-            ln -s testDir2/ symbolicLinks/dir_sym_link
+            ln -s demoDir2/ symbolicLinks/dir_sym_link
         
         >>> And then cd using that symbolic link
 
@@ -303,7 +369,7 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
         >>> Next we add hard links to files
 
-            ln testTextFile1.txt hardLinkTestTextFile1.txt
+            ln demoTextFile1.txt hardLinkDemoTextFile1.txt
 
         >>> We'll use this in the remove utility next
 
@@ -311,42 +377,42 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
         >>> We confirm that a file exists
 
-            ls testTextFile2.txt
+            ls demoTextFile2.txt
 
         >>> We can remove individual files
 
-            rm testTextFile2.txt
+            rm demoTextFile2.txt
         
         >>> And confirm its gone
 
-            ls testTextFile2.txt
+            ls demoTextFile2.txt
 
         >>> We can see a directory exists
 
-            ls -l testDir2/
+            ls -l demoDir2/
         
         >>> We will get an error if we try to delete a directory
 
-            rm testDir2/
+            rm demoDir2/
 
         >>> But we can add the recursive option to remove it recursively
 
-            rm -r testDir2/
+            rm -r demoDir2/
 
         >>> And now we can see that it's gone
 
-            ls -l testDir2/
+            ls -l demoDir2/
 
         >>> In our implementation, we used hardlinks to decided if a file should
             still exist. As long as there is a hardlink pointing to it the file
             would exist.
 
-            rm testTextFile2.txt
+            rm demoTextFile2.txt
         
         >>> Even though we just deleted that file, it can still be viewed
             because of the hard link we made before
 
-            cat hardLinkTestTextFile1.txt
+            cat hardLinkDemoTextFile1.txt
         
         >>> But the symbolic link doesn't work because it pointed to the file
             reference that got deleted
@@ -357,11 +423,11 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
         >>> You can make a directory using the mkdir utility
 
-            mkdir testDir3/
+            mkdir demoDir3/
         
         >>> Now we can cd into it
 
-            cd testDir3/
+            cd demoDir3/
 
         >>> And we go back to the root to continue
 
@@ -371,11 +437,16 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
 
         >>> This utiltiy allows us to move a file to a new location,
 
-            mv testTextFile2.txt testDir3/testTextFile2.txt
+            mv demoTextFile2.txt demoDir3/demoTextFile2.txt
 
         >>> And this is useful for renaming a file as well
 
-            mv testDir3/testTextFile2.txt testDir3/princessPeachLetter.txt
+            mv demoDir3/demoTextFile2.txt demoDir3/princessPeachLetter.txt
+        
+        >>> You can also move one or many files into a folder
+
+            mv demoDir3/demoTextFile* demoDir3/
+            mv demoDir/demoTextFile3.txt demoDir3/
 
         >>> touch - UTILITY
 
@@ -395,3 +466,11 @@ Nathan  >>> 'This video is our demo for the ECE 356 UN*X file system project.
         >>> And can confirm it exists
 
             ls krabbyPattySecretFormula.wav
+        
+        >> Further the touch command will update the modified field when a file
+            is accessed.
+
+            touch aNewFile.txt
+            ls aNewFile.txt
+            touch emptyDirectory
+            ls emptyDirectory/

@@ -28,6 +28,11 @@ def main(args):
         except MissingFileError:
             print(f"rm: cannot create directory '{path}': No such file or directory")
             return 1
+        
+        if curr_file.full_name == "/":
+            print(f"rm: cannot remove root directory")
+            return 1
+        
         filetype = curr_file.type
         if filetype is Directory:
             if args.recursive:

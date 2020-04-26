@@ -1,0 +1,54 @@
+#!rdbsh
+"""Concatenate files and print on the standard output
+"""
+
+from sys import exit
+from argparse import ArgumentParser
+from pathlib import PurePosixPath
+from pathlib import Path
+
+from client_backend.fs_db_file import Directory, File, RegularFile, SymbolicLink
+from client_backend.fs_db_file import IncorrectFileTypeError, MissingFileError
+from client_backend.fs_db_io import FSDatabase
+
+def parse_args():
+    global ARGV, SHELL
+    parser = ArgumentParser(description='Concatenate files and print on the standard output')
+    parser.add_argument('target_filename', 
+    help='file(s) to standard output',
+    nargs='+')
+
+    return parser.parse_args(ARGV)
+
+
+def main(args):
+    global FS, SHELL
+
+    target = None
+    try:
+        matched_files = []
+        for target in args.target_filename:
+            matched_files.append(File.resolve_to(FS, target, RegularFile))
+
+        for matched_file in matched_files:
+            for line in matched_file.readlines():
+                print(line, end="")
+    except IncorrectFileTypeError:
+        print(f"cat: '{target}/': Is a directory.")
+        return 1
+    except MissingFileError:
+        print(f"cat: '{target}': No such file or directory.")
+        return 1
+
+
+if __name__ == "__main__":
+    import sys
+    from client_backend import shell_context
+    FS = FSDatabase('.fs_db_rdbsh')
+    ARGV = sys.argv[1:]
+    SHELL = shell_context
+    exit(main(parse_args()))
+
+
+if __name__ == "__rdbsh__":
+    exit(main(parse_args()))
